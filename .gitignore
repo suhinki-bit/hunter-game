@@ -1,0 +1,6 @@
+# 게임과 무관한 파일
+stairsample.dwg
+계단번호매기기.lsp
+
+# Claude Code 로컬 프리뷰 설정 (환경 종속적)
+.claude/

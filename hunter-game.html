@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>사냥꾼 게임</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #87ceeb;
+    font-family: "Malgun Gothic", "Segoe UI", sans-serif;
+    cursor: none;
+    user-select: none;
+  }
+  #game {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+  }
+  #hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 14px 22px;
+    box-sizing: border-box;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    font-size: 20px;
+    font-weight: bold;
+    pointer-events: none;
+    letter-spacing: 1px;
+  }
+  #hud .box { display: flex; gap: 16px; align-items: center; }
+  #ammo-dots { display: flex; gap: 5px; }
+  .dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #ffd93d;
+    box-shadow: 0 0 4px rgba(0,0,0,0.5);
+  }
+  .dot.empty { background: rgba(255,255,255,0.25); }
+  #overlay {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    text-align: center;
+  }
+  #overlay h1 { font-size: 46px; margin: 0 0 10px; text-shadow: 0 3px 6px rgba(0,0,0,0.6); }
+  #overlay p { font-size: 18px; margin: 6px 0; opacity: 0.9; line-height: 1.6; }
+  #overlay .diff-prompt {
+    margin-top: 22px;
+    font-size: 20px;
+    font-weight: bold;
+    opacity: 1;
+  }
+  #difficulty-select {
+    display: flex;
+    gap: 16px;
+    margin-top: 14px;
+  }
+  .diff-btn {
+    padding: 14px 32px;
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.35);
+    transition: transform 0.08s ease;
+  }
+  .diff-btn:hover { filter: brightness(1.1); }
+  .diff-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.35); }
+  .diff-btn.easy { background: #4caf50; }
+  .diff-btn.normal { background: #3d8bd6; }
+  .diff-btn.hard { background: #e04545; }
+  #reload-msg {
+    position: fixed;
+    bottom: 14%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ff5252;
+    font-size: 22px;
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+    pointer-events: none;
+    display: none;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div class="box">🎯 점수: <span id="score">0</span></div>
+  <div class="box">❤️ 목숨: <span id="lives">5</span></div>
+  <div class="box">탄약: <div id="ammo-dots"></div></div>
+</div>
+
+<div id="reload-msg">탄약 없음! R 키를 눌러 재장전하세요</div>
+
+<div id="overlay">
+  <h1 id="overlay-title">🦆 사냥꾼 게임</h1>
+  <div id="overlay-message">
+    <p>수풀에서 새가 날아오릅니다. 마우스로 조준하고 클릭해서 명중시키세요!</p>
+    <p>탄약이 떨어지면 <b>R</b> 키로 재장전 &nbsp;|&nbsp; 새를 놓치면 목숨이 줄어듭니다</p>
+    <p>가끔 <b>고양이</b>가 날아오릅니다 - 실수로 맞히면 목숨이 줄어드니 주의하세요!</p>
+    <p>가끔 <b>지나가는 사람</b>도 있습니다 - 맞히면 목숨이 2개나 줄어듭니다!</p>
+  </div>
+  <p class="diff-prompt">난이도를 선택하세요</p>
+  <div id="difficulty-select">
+    <div class="diff-btn easy" data-difficulty="easy">EASY</div>
+    <div class="diff-btn normal" data-difficulty="normal">NORMAL</div>
+    <div class="diff-btn hard" data-difficulty="hard">HARD</div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const livesEl = document.getElementById('lives');
+  const ammoDotsEl = document.getElementById('ammo-dots');
+  const overlay = document.getElementById('overlay');
+  const reloadMsg = document.getElementById('reload-msg');
+
+  // ---------- 총소리 (Web Audio API로 합성) ----------
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playGunshotSound() {
+    try {
+      const ac = getAudioCtx();
+      if (!ac) return;
+      const now = ac.currentTime;
+      const duration = 0.28;
+
+      // 노이즈로 만든 '탕' 하는 총성
+      const bufferSize = Math.floor(ac.sampleRate * duration);
+      const buffer = ac.createBuffer(1, bufferSize, ac.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+      const noise = ac.createBufferSource();
+      noise.buffer = buffer;
+
+      const noiseFilter = ac.createBiquadFilter();
+      noiseFilter.type = 'lowpass';
+      noiseFilter.frequency.setValueAtTime(4500, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(200, now + duration);
+
+      const noiseGain = ac.createGain();
+      noiseGain.gain.setValueAtTime(1, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(ac.destination);
+
+      // 저음 펀치 (타격감)
+      const thump = ac.createOscillator();
+      thump.type = 'sine';
+      thump.frequency.setValueAtTime(120, now);
+      thump.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+
+      const thumpGain = ac.createGain();
+      thumpGain.gain.setValueAtTime(0.9, now);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+      thump.connect(thumpGain);
+      thumpGain.connect(ac.destination);
+
+      noise.start(now);
+      noise.stop(now + duration);
+      thump.start(now);
+      thump.stop(now + 0.2);
+    } catch (e) {
+      // 오디오 재생이 불가능한 환경이면 조용히 무시
+    }
+  }
+
+  // 고양이를 잘못 맞췄을 때 나는 경고 비프음
+  function playBeepSound() {
+    try {
+      const ac = getAudioCtx();
+      if (!ac) return;
+      const now = ac.currentTime;
+
+      [0, 0.12].forEach(offset => {
+        const osc = ac.createOscillator();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, now + offset);
+
+        const gain = ac.createGain();
+        gain.gain.setValueAtTime(0.001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.22, now + offset + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.1);
+
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.12);
+      });
+    } catch (e) {
+      // 오디오 재생이 불가능한 환경이면 조용히 무시
+    }
+  }
+
+  // 사람을 잘못 맞췄을 때 나는 심각한 경고음
+  function playAlarmSound() {
+    try {
+      const ac = getAudioCtx();
+      if (!ac) return;
+      const now = ac.currentTime;
+
+      [0, 0.16, 0.32].forEach(offset => {
+        const osc = ac.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(320, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(180, now + offset + 0.14);
+
+        const gain = ac.createGain();
+        gain.gain.setValueAtTime(0.001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.3, now + offset + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.15);
+
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.16);
+      });
+    } catch (e) {
+      // 오디오 재생이 불가능한 환경이면 조용히 무시
+    }
+  }
+
+  let W, H, groundY, bushBaseY;
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    groundY = H - 70;
+    bushBaseY = groundY + 10;
+    buildBushes();
+    buildClouds();
+  }
+
+  // ---------- 난이도 ----------
+  const DIFFICULTIES = {
+    easy: {
+      speedBase: 65, speedRandom: 40, speedDifficultyScale: 50,
+      spawnIntervalBase: 2300, spawnIntervalMin: 1000, spawnScoreFactor: 1.5,
+      maxBirds: 4,
+      catChance: 0.10,
+      personIntervalMin: 11000, personIntervalMax: 20000,
+    },
+    normal: {
+      speedBase: 90, speedRandom: 70, speedDifficultyScale: 90,
+      spawnIntervalBase: 1600, spawnIntervalMin: 500, spawnScoreFactor: 2,
+      maxBirds: 6,
+      catChance: 0.20,
+      personIntervalMin: 8000, personIntervalMax: 17000,
+    },
+    hard: {
+      speedBase: 135, speedRandom: 95, speedDifficultyScale: 130,
+      spawnIntervalBase: 950, spawnIntervalMin: 280, spawnScoreFactor: 2.5,
+      maxBirds: 9,
+      catChance: 0.32,
+      personIntervalMin: 4500, personIntervalMax: 10000,
+    },
+  };
+
+  // ---------- 상태 ----------
+  const MAX_AMMO = 6;
+  const state = {
+    running: false,
+    score: 0,
+    lives: 5,
+    ammo: MAX_AMMO,
+    reloading: false,
+    time: 0,
+    spawnTimer: 0,
+    spawnInterval: 1600,
+    birdKills: 0, // 새를 잡은 수 (3마리마다 배경 시간대 전환)
+    personSpawnTimer: 0,
+    personSpawnInterval: 7000,
+    difficulty: 'normal',
+    difficultyConfig: DIFFICULTIES.normal,
+  };
+
+  // ---------- 시간대 (아침 -> 낮 -> 저녁 순환) ----------
+  const PHASES = [
+    { // 아침
+      skyTop: '#8fb8e0', skyMid: '#ffd3a0', skyBottom: '#fff0dc',
+      sun: 'rgba(255, 224, 170, 0.95)', sunGlow: 'rgba(255, 200, 140, 0.35)',
+      hill: '#8fcf72', groundTop: '#5fa04c', groundBottom: '#4a8a3b',
+      cloud: 'rgba(255,255,255,0.85)',
+    },
+    { // 낮
+      skyTop: '#4fa8e0', skyMid: '#a9dcf5', skyBottom: '#dff3ff',
+      sun: 'rgba(255, 250, 210, 0.9)', sunGlow: 'rgba(255, 250, 210, 0.25)',
+      hill: '#7fbf6a', groundTop: '#4e8c3f', groundBottom: '#3d7530',
+      cloud: 'rgba(255,255,255,0.85)',
+    },
+    { // 저녁
+      skyTop: '#2b3a67', skyMid: '#e8734a', skyBottom: '#ffb37a',
+      sun: 'rgba(255, 140, 80, 0.95)', sunGlow: 'rgba(255, 120, 60, 0.4)',
+      hill: '#3f6b4a', groundTop: '#33502f', groundBottom: '#243a22',
+      cloud: 'rgba(255, 210, 190, 0.75)',
+    },
+  ];
+  function currentPhase() {
+    return PHASES[Math.floor(state.birdKills / 3) % PHASES.length];
+  }
+
+  const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  window.addEventListener('mousemove', e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
+
+  // ---------- 배경 요소 ----------
+  let bushes = [];
+  function buildBushes() {
+    bushes = [];
+    const count = Math.max(4, Math.floor(W / 220));
+    for (let i = 0; i < count; i++) {
+      const x = (W / count) * i + (W / count) * 0.5 + (Math.random() * 40 - 20);
+      bushes.push({
+        x,
+        y: bushBaseY,
+        scale: 0.8 + Math.random() * 0.6,
+      });
+    }
+  }
+
+  let clouds = [];
+  function buildClouds() {
+    clouds = [];
+    for (let i = 0; i < 5; i++) {
+      clouds.push({
+        x: Math.random() * W,
+        y: 40 + Math.random() * (H * 0.35),
+        speed: 6 + Math.random() * 10,
+        scale: 0.6 + Math.random() * 1.2,
+      });
+    }
+  }
+
+  function drawBackground(dt) {
+    const phase = currentPhase();
+
+    // 하늘
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, phase.skyTop);
+    sky.addColorStop(0.6, phase.skyMid);
+    sky.addColorStop(1, phase.skyBottom);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    // 태양 광채
+    ctx.fillStyle = phase.sunGlow;
+    ctx.beginPath();
+    ctx.arc(W - 110, 100, 90, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 태양
+    ctx.fillStyle = phase.sun;
+    ctx.beginPath();
+    ctx.arc(W - 110, 100, 55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 구름
+    ctx.fillStyle = phase.cloud;
+    clouds.forEach(c => {
+      c.x += c.speed * dt / 1000;
+      if (c.x - 80 * c.scale > W) c.x = -80 * c.scale;
+      drawCloud(c.x, c.y, c.scale);
+    });
+
+    // 먼 언덕
+    ctx.fillStyle = phase.hill;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    for (let x = 0; x <= W; x += 60) {
+      ctx.lineTo(x, groundY - 30 - Math.sin(x * 0.01) * 20);
+    }
+    ctx.lineTo(W, groundY);
+    ctx.closePath();
+    ctx.fill();
+
+    // 땅
+    ctx.fillStyle = phase.groundTop;
+    ctx.fillRect(0, groundY, W, H - groundY);
+    ctx.fillStyle = phase.groundBottom;
+    ctx.fillRect(0, groundY, W, 8);
+  }
+
+  function drawCloud(x, y, s) {
+    ctx.beginPath();
+    ctx.ellipse(x, y, 30 * s, 16 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 25 * s, y + 6 * s, 22 * s, 13 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - 25 * s, y + 8 * s, 20 * s, 12 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawBush(b) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.scale(b.scale, b.scale);
+    ctx.fillStyle = '#2f6b2a';
+    const lumps = [[-40, -10, 30], [0, -25, 38], [40, -8, 30], [-15, -5, 26], [18, -2, 26]];
+    lumps.forEach(([lx, ly, r]) => {
+      ctx.beginPath();
+      ctx.arc(lx, ly, r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.fillStyle = '#3f8a37';
+    ctx.beginPath();
+    ctx.arc(0, -20, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ---------- 새 / 고양이 ----------
+  const BIRD_COLORS = [
+    { body: '#3a3a3a', wing: '#1c1c1c', belly: '#666' },
+    { body: '#8b5a2b', wing: '#5c3a1a', belly: '#c99b6a' },
+    { body: '#2b5d8b', wing: '#1a3a5c', belly: '#9bc9e6' },
+    { body: '#b23a3a', wing: '#7a1c1c', belly: '#e69b9b' },
+  ];
+  const CAT_COLORS = [
+    { body: '#e08a3c', wing: '#b56a26', belly: '#fbe1c0' }, // 치즈냥
+    { body: '#6b6b6b', wing: '#4a4a4a', belly: '#d9d9d9' }, // 회색냥
+    { body: '#3a3a3a', wing: '#222222', belly: '#8a8a8a' }, // 검정냥
+    { body: '#f2e6d8', wing: '#d8c6ac', belly: '#fffaf2' }, // 흰냥
+  ];
+  let birds = [];
+  function spawnBird() {
+    const cfg = state.difficultyConfig;
+    const bush = bushes[Math.floor(Math.random() * bushes.length)];
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const difficulty = Math.min(state.score / 200, 1);
+    const isCat = Math.random() < cfg.catChance;
+    const speed = (isCat ? cfg.speedBase * 0.8 : cfg.speedBase) + Math.random() * cfg.speedRandom + difficulty * cfg.speedDifficultyScale;
+    birds.push({
+      type: isCat ? 'cat' : 'bird',
+      x: bush.x + (Math.random() * 20 - 10),
+      y: bush.y - 10,
+      vx: dir * (speed * 0.35),
+      vy: -(speed),
+      gravity: 40 + Math.random() * 20,
+      radius: isCat ? 26 + Math.random() * 6 : 20 + Math.random() * 6,
+      color: (isCat ? CAT_COLORS : BIRD_COLORS)[Math.floor(Math.random() * (isCat ? CAT_COLORS.length : BIRD_COLORS.length))],
+      flap: Math.random() * Math.PI * 2,
+      alive: true,
+      dead: false,
+      fallVy: 0,
+      angle: 0,
+      born: state.time,
+    });
+  }
+
+  function updateBirds(dt) {
+    const dts = dt / 1000;
+    for (let i = birds.length - 1; i >= 0; i--) {
+      const b = birds[i];
+      b.flap += dts * 14;
+      if (b.alive) {
+        b.x += b.vx * dts;
+        b.vy += b.gravity * dts;
+        b.y += b.vy * dts;
+        // 화면 밖으로 벗어나면 (놓친 경우) - 새만 목숨 감소, 고양이는 그냥 놓아줌
+        if (b.y < -60 || b.x < -60 || b.x > W + 60) {
+          birds.splice(i, 1);
+          if (b.type !== 'cat') loseLife();
+          continue;
+        }
+      } else {
+        // 맞아서 떨어지는 중
+        b.fallVy += 500 * dts;
+        b.y += b.fallVy * dts;
+        b.angle += dts * 10;
+        if (b.y > H + 80) {
+          birds.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  function drawBird(b) {
+    if (b.type === 'cat') { drawCat(b); return; }
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    if (!b.alive) ctx.rotate(b.angle);
+    else {
+      const tilt = Math.atan2(b.vy, b.vx) * 0.15;
+      ctx.rotate(tilt);
+    }
+    const flapAngle = b.alive ? Math.sin(b.flap) * 0.9 : -0.6;
+    const r = b.radius;
+
+    // 날개 (뒤)
+    ctx.fillStyle = b.color.wing;
+    ctx.save();
+    ctx.rotate(flapAngle);
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.2, 0, r * 1.1, r * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 몸통
+    ctx.fillStyle = b.color.body;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.9, r * 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 배
+    ctx.fillStyle = b.color.belly;
+    ctx.beginPath();
+    ctx.ellipse(r * 0.1, r * 0.2, r * 0.5, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 머리
+    ctx.fillStyle = b.color.body;
+    ctx.beginPath();
+    ctx.arc(r * 0.85, -r * 0.15, r * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 부리
+    ctx.fillStyle = '#ffb703';
+    ctx.beginPath();
+    ctx.moveTo(r * 1.2, -r * 0.15);
+    ctx.lineTo(r * 1.55, -r * 0.05);
+    ctx.lineTo(r * 1.2, r * 0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    // 눈
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(r * 0.95, -r * 0.25, r * 0.12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(r * 0.98, -r * 0.25, r * 0.06, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 앞 날개
+    ctx.fillStyle = b.color.wing;
+    ctx.save();
+    ctx.rotate(-flapAngle * 0.8);
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.1, 0, r * 0.9, r * 0.35, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // 함정: 맞히면 목숨이 줄어드는 고양이 (새 대신 가끔 날아오름)
+  function drawCat(b) {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    if (!b.alive) ctx.rotate(b.angle);
+    else {
+      const tilt = Math.atan2(b.vy, b.vx) * 0.12;
+      ctx.rotate(tilt);
+    }
+    const flapAngle = b.alive ? Math.sin(b.flap) * 0.5 : -0.4;
+    const r = b.radius;
+
+    // 꼬리
+    ctx.strokeStyle = b.color.body;
+    ctx.lineWidth = r * 0.28;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.7, r * 0.1);
+    ctx.quadraticCurveTo(-r * 1.5, -r * 0.3 + Math.sin(b.flap * 0.7) * 6, -r * 1.3, -r * 1.0);
+    ctx.stroke();
+
+    // 작은 날개(날아다니는 느낌)
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.save();
+    ctx.rotate(flapAngle);
+    ctx.beginPath();
+    ctx.ellipse(-r * 0.1, -r * 0.1, r * 0.7, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 몸통
+    ctx.fillStyle = b.color.body;
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.05, r * 0.85, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 배
+    ctx.fillStyle = b.color.belly;
+    ctx.beginPath();
+    ctx.ellipse(r * 0.05, r * 0.25, r * 0.45, r * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 앞다리/뒷다리
+    ctx.fillStyle = b.color.body;
+    [[-r * 0.35, r * 0.5], [r * 0.4, r * 0.5]].forEach(([lx, ly]) => {
+      ctx.beginPath();
+      ctx.ellipse(lx, ly, r * 0.16, r * 0.28, 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 머리
+    ctx.fillStyle = b.color.body;
+    ctx.beginPath();
+    ctx.arc(r * 0.75, -r * 0.35, r * 0.48, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 귀
+    ctx.beginPath();
+    ctx.moveTo(r * 0.5, -r * 0.68);
+    ctx.lineTo(r * 0.42, -r * 1.15);
+    ctx.lineTo(r * 0.72, -r * 0.85);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(r * 1.0, -r * 0.68);
+    ctx.lineTo(r * 1.1, -r * 1.15);
+    ctx.lineTo(r * 1.25, -r * 0.8);
+    ctx.closePath();
+    ctx.fill();
+    // 귀 안쪽
+    ctx.fillStyle = b.color.belly;
+    ctx.beginPath();
+    ctx.moveTo(r * 0.53, -r * 0.75);
+    ctx.lineTo(r * 0.5, -r * 1.0);
+    ctx.lineTo(r * 0.68, -r * 0.85);
+    ctx.closePath();
+    ctx.fill();
+
+    // 수염
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1.2;
+    [-0.12, 0, 0.12].forEach(dy => {
+      ctx.beginPath();
+      ctx.moveTo(r * 1.0, -r * 0.3 + r * dy);
+      ctx.lineTo(r * 1.55, -r * 0.35 + r * dy);
+      ctx.stroke();
+    });
+
+    // 눈
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.ellipse(r * 0.62, -r * 0.38, r * 0.07, r * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(r * 0.92, -r * 0.4, r * 0.07, r * 0.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 코 + 입
+    ctx.fillStyle = '#e0708a';
+    ctx.beginPath();
+    ctx.moveTo(r * 0.8, -r * 0.22);
+    ctx.lineTo(r * 0.74, -r * 0.14);
+    ctx.lineTo(r * 0.86, -r * 0.14);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // ---------- 지나가는 사람 (맞히면 목숨 2개 감소) ----------
+  const PERSON_DRESS_COLORS = ['#e0507a', '#5b7fe0', '#e0a83c', '#7a5be0'];
+
+  let people = [];
+  function spawnPerson() {
+    const dir = Math.random() < 0.5 ? 1 : -1; // 1: 왼쪽->오른쪽, -1: 오른쪽->왼쪽
+    const speed = 55 + Math.random() * 35;
+    people.push({
+      type: 'person',
+      x: dir === 1 ? -50 : W + 50,
+      y: groundY - 26,
+      vx: dir * speed,
+      dir,
+      hitRadius: 34,
+      alive: true,
+      fallAge: 0,
+      walkPhase: Math.random() * Math.PI * 2,
+      dressColor: PERSON_DRESS_COLORS[Math.floor(Math.random() * PERSON_DRESS_COLORS.length)],
+    });
+  }
+
+  function updatePeople(dt) {
+    const dts = dt / 1000;
+    for (let i = people.length - 1; i >= 0; i--) {
+      const p = people[i];
+      if (p.alive) {
+        p.x += p.vx * dts;
+        p.walkPhase += dts * 8;
+        if (p.x < -80 || p.x > W + 80) {
+          people.splice(i, 1);
+        }
+      } else {
+        p.fallAge += dt;
+        if (p.fallAge > 500) people.splice(i, 1);
+      }
+    }
+  }
+
+  function drawPerson(p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    if (!p.alive) {
+      const t = Math.min(p.fallAge / 300, 1);
+      ctx.rotate((Math.PI / 2) * t * (p.dir >= 0 ? 1 : -1));
+      ctx.globalAlpha = 1 - Math.max(0, (p.fallAge - 300) / 200);
+    }
+    if (p.dir < 0) ctx.scale(-1, 1); // 왼쪽으로 걸을 때 좌우 반전
+
+    const legSwing = p.alive ? Math.sin(p.walkPhase) * 14 : 0;
+    const armSwing = p.alive ? Math.sin(p.walkPhase + Math.PI) * 12 : 0;
+
+    // 뒤쪽 다리
+    ctx.strokeStyle = '#f0c8a0';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(-legSwing * 0.5, 26);
+    ctx.stroke();
+
+    // 치마
+    ctx.fillStyle = p.dressColor;
+    ctx.beginPath();
+    ctx.moveTo(-11, -8);
+    ctx.lineTo(11, -8);
+    ctx.lineTo(16, 14);
+    ctx.lineTo(-16, 14);
+    ctx.closePath();
+    ctx.fill();
+
+    // 앞쪽 다리
+    ctx.strokeStyle = '#f0c8a0';
+    ctx.beginPath();
+    ctx.moveTo(0, -6);
+    ctx.lineTo(legSwing * 0.5, 26);
+    ctx.stroke();
+
+    // 몸통(상의)
+    ctx.fillStyle = p.dressColor;
+    ctx.fillRect(-9, -30, 18, 24);
+
+    // 뒤쪽 팔
+    ctx.strokeStyle = '#f0c8a0';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(-8, -26);
+    ctx.lineTo(-8 - armSwing * 0.4, -4);
+    ctx.stroke();
+
+    // 앞쪽 팔
+    ctx.beginPath();
+    ctx.moveTo(8, -26);
+    ctx.lineTo(8 + armSwing * 0.4, -4);
+    ctx.stroke();
+
+    // 머리
+    ctx.fillStyle = '#f0c8a0';
+    ctx.beginPath();
+    ctx.arc(0, -38, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 머리카락
+    ctx.fillStyle = '#3a2418';
+    ctx.beginPath();
+    ctx.arc(0, -40, 10, Math.PI * 0.9, Math.PI * 2.15);
+    ctx.fill();
+    ctx.fillRect(-9, -40, 4, 20);
+    ctx.fillRect(5, -40, 4, 20);
+
+    ctx.restore();
+  }
+
+  // ---------- 파티클 (깃털, 총구 화염) ----------
+  let particles = [];
+  function spawnFeathers(x, y, color) {
+    for (let i = 0; i < 10; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 40 + Math.random() * 120;
+      particles.push({
+        type: 'feather',
+        x, y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 60,
+        gravity: 260,
+        life: 700 + Math.random() * 400,
+        age: 0,
+        size: 4 + Math.random() * 4,
+        color: color,
+        spin: Math.random() * 6 - 3,
+        angle: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function spawnSmoke(x, y, ang) {
+    const count = 9;
+    for (let i = 0; i < count; i++) {
+      const spread = (Math.random() - 0.5) * 0.7;
+      const a = ang + spread;
+      const spd = 70 + Math.random() * 110;
+      particles.push({
+        type: 'smoke',
+        x, y,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd,
+        life: 450 + Math.random() * 400,
+        age: 0,
+        size: 4 + Math.random() * 4,
+        growth: 45 + Math.random() * 35,
+        alphaMax: 0.45 + Math.random() * 0.25,
+      });
+    }
+  }
+
+  function updateParticles(dt) {
+    const dts = dt / 1000;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age > p.life) { particles.splice(i, 1); continue; }
+      if (p.type === 'smoke') {
+        const drag = Math.max(1 - 1.6 * dts, 0);
+        p.vx *= drag;
+        p.vy *= drag;
+        p.vy -= 18 * dts;
+        p.x += p.vx * dts;
+        p.y += p.vy * dts;
+        p.size += p.growth * dts;
+      } else {
+        p.vy += p.gravity * dts;
+        p.x += p.vx * dts;
+        p.y += p.vy * dts;
+        p.angle += p.spin * dts;
+      }
+    }
+  }
+
+  function drawParticles() {
+    particles.forEach(p => {
+      const t = 1 - p.age / p.life;
+      if (p.type === 'smoke') {
+        ctx.save();
+        ctx.globalAlpha = Math.max(t * p.alphaMax, 0);
+        ctx.fillStyle = '#d8d8d8';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        return;
+      }
+      ctx.save();
+      ctx.globalAlpha = Math.max(t, 0);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+
+  // 점수 팝업
+  let popups = [];
+  function spawnPopup(x, y, text, color) {
+    popups.push({ x, y, text, color, age: 0, life: 800 });
+  }
+  function updatePopups(dt) {
+    for (let i = popups.length - 1; i >= 0; i--) {
+      popups[i].age += dt;
+      popups[i].y -= dt * 0.05;
+      if (popups[i].age > popups[i].life) popups.splice(i, 1);
+    }
+  }
+  function drawPopups() {
+    popups.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(1 - p.age / p.life, 0);
+      ctx.fillStyle = p.color;
+      ctx.font = 'bold 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.text, p.x, p.y);
+      ctx.restore();
+    });
+  }
+
+  // ---------- 총 (하단 고정, 총구는 마우스를 따라 회전) ----------
+  let flash = 0; // 총구 화염 타이머
+
+  function getGunTransform() {
+    const gx = W / 2;
+    const gy = H - 18;
+    const ang = Math.atan2(mouse.y - gy, mouse.x - gx);
+    return { gx, gy, ang };
+  }
+
+  // 총구 끝(월드 좌표) - 연기/화염 발생 위치
+  function getMuzzlePos() {
+    const { gx, gy, ang } = getGunTransform();
+    const localX = 130, localY = -2;
+    const cos = Math.cos(ang), sin = Math.sin(ang);
+    return {
+      x: gx + localX * cos - localY * sin,
+      y: gy + localX * sin + localY * cos,
+      ang,
+    };
+  }
+
+  function drawGun() {
+    const { gx, gy, ang } = getGunTransform();
+
+    ctx.save();
+    ctx.translate(gx, gy);
+
+    // 어깨(손) 받침
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath();
+    ctx.ellipse(0, 10, 22, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.rotate(ang);
+
+    // ---- 개머리판 (나무 스톡) ----
+    ctx.fillStyle = '#7a4a24';
+    ctx.beginPath();
+    ctx.moveTo(-16, -7);
+    ctx.lineTo(-58, -17);
+    ctx.lineTo(-76, -9);
+    ctx.lineTo(-76, 15);
+    ctx.lineTo(-54, 17);
+    ctx.lineTo(-16, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#4f2f14';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // ---- 리시버 (금속 몸통) ----
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(-18, -10, 38, 20);
+    ctx.fillStyle = '#4a4a4a';
+    ctx.fillRect(-18, -10, 38, 4);
+
+    // 방아쇠울 + 방아쇠
+    ctx.strokeStyle = '#222';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(-2, 14, 8, 0, Math.PI);
+    ctx.stroke();
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-4, 10, 3, 8);
+
+    // ---- 펌프 손잡이 (전방 나무 그립) ----
+    ctx.fillStyle = '#8a5a2e';
+    ctx.fillRect(34, -9, 28, 18);
+    ctx.strokeStyle = '#5a3a1e';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(37 + i * 5, -9);
+      ctx.lineTo(37 + i * 5, 9);
+      ctx.stroke();
+    }
+
+    // ---- 총열 (더블 배럴) ----
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(18, -9, 108, 7);
+    ctx.fillRect(18, 2, 108, 7);
+    ctx.fillStyle = '#4a4a4a';
+    ctx.fillRect(18, -9, 108, 1.5);
+    ctx.fillRect(18, 2, 108, 1.5);
+
+    // 총구 끝
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(122, -10, 8, 8);
+    ctx.fillRect(122, 2, 8, 8);
+
+    // 가늠쇠(조준 비드)
+    ctx.fillStyle = '#eee';
+    ctx.beginPath();
+    ctx.arc(126, -6.5, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 총구 화염
+    if (flash > 0) {
+      const t = flash / 120;
+      ctx.save();
+      ctx.translate(130, -2);
+      ctx.globalAlpha = t;
+      ctx.fillStyle = '#ffdd55';
+      ctx.beginPath();
+      ctx.arc(0, 0, 16 * t + 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff3c4';
+      ctx.beginPath();
+      ctx.arc(0, 0, 8 * t + 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  // 조준선(크로스헤어)
+  function drawCrosshair() {
+    ctx.save();
+    ctx.translate(mouse.x, mouse.y);
+    ctx.strokeStyle = state.ammo > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,80,80,0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 16, 0, Math.PI * 2);
+    ctx.moveTo(-24, 0); ctx.lineTo(-8, 0);
+    ctx.moveTo(8, 0); ctx.lineTo(24, 0);
+    ctx.moveTo(0, -24); ctx.lineTo(0, -8);
+    ctx.moveTo(0, 8); ctx.lineTo(0, 24);
+    ctx.stroke();
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath();
+    ctx.arc(0, 0, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ---------- 게임 로직 ----------
+  function updateHUD() {
+    scoreEl.textContent = state.score;
+    livesEl.textContent = state.lives;
+    ammoDotsEl.innerHTML = '';
+    for (let i = 0; i < MAX_AMMO; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot' + (i < state.ammo ? '' : ' empty');
+      ammoDotsEl.appendChild(d);
+    }
+    reloadMsg.style.display = state.ammo === 0 ? 'block' : 'none';
+  }
+
+  function loseLife(amount = 1) {
+    state.lives = Math.max(0, state.lives - amount);
+    updateHUD();
+    if (state.lives <= 0) endGame();
+  }
+
+  function shoot(x, y) {
+    if (!state.running) return;
+    if (state.ammo <= 0) {
+      reloadMsg.style.display = 'block';
+      return;
+    }
+    state.ammo--;
+    flash = 120;
+    updateHUD();
+
+    const muzzle = getMuzzlePos();
+    spawnSmoke(muzzle.x, muzzle.y, muzzle.ang);
+    playGunshotSound();
+
+    // 명중 판정: 클릭 지점에서 가장 가까운 대상(새/고양이/사람)을 찾는다
+    let hit = null;
+    let hitIsPerson = false;
+    let bestDist = Infinity;
+    for (const b of birds) {
+      if (!b.alive) continue;
+      const d = Math.hypot(b.x - x, b.y - y);
+      if (d < b.radius + 14 && d < bestDist) {
+        bestDist = d;
+        hit = b;
+        hitIsPerson = false;
+      }
+    }
+    for (const p of people) {
+      if (!p.alive) continue;
+      const d = Math.hypot(p.x - x, p.y - y);
+      if (d < p.hitRadius && d < bestDist) {
+        bestDist = d;
+        hit = p;
+        hitIsPerson = true;
+      }
+    }
+
+    if (hitIsPerson) {
+      // 사람을 맞히면 큰 경고음과 함께 목숨이 두 개 줄어듦
+      hit.alive = false;
+      hit.fallAge = 0;
+      playAlarmSound();
+      spawnFeathers(hit.x, hit.y - 30, hit.dressColor);
+      spawnPopup(hit.x, hit.y - 40, '-2 목숨! (사람을 쐈다!)', '#ff2b2b');
+      loseLife(2);
+      updateHUD();
+    } else if (hit) {
+      hit.alive = false;
+      hit.fallVy = -80;
+      spawnFeathers(hit.x, hit.y, hit.color.wing);
+
+      if (hit.type === 'cat') {
+        // 고양이를 맞히면 비프음과 함께 목숨이 하나 줄어듦
+        playBeepSound();
+        spawnPopup(hit.x, hit.y, '-1 목숨! (고양이)', '#ff5252');
+        loseLife();
+      } else {
+        const points = 10 + Math.round((1 - hit.radius / 26) * 20);
+        state.score += points;
+        state.birdKills++;
+        spawnPopup(hit.x, hit.y, '+' + points, '#ffd93d');
+      }
+      updateHUD();
+    }
+  }
+
+  function reload() {
+    if (state.ammo < MAX_AMMO) {
+      state.ammo = MAX_AMMO;
+      updateHUD();
+    }
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.key.toLowerCase() === 'r') reload();
+  });
+
+  canvas.addEventListener('mousedown', e => {
+    if (!state.running) return;
+    shoot(e.clientX, e.clientY);
+  });
+
+  function startGame(difficulty) {
+    const cfg = DIFFICULTIES[difficulty] || DIFFICULTIES.normal;
+    state.difficulty = difficulty || 'normal';
+    state.difficultyConfig = cfg;
+
+    state.running = true;
+    state.score = 0;
+    state.lives = 5;
+    state.ammo = MAX_AMMO;
+    state.time = 0;
+    state.spawnTimer = 0;
+    state.spawnInterval = cfg.spawnIntervalBase;
+    state.birdKills = 0;
+    state.personSpawnTimer = 0;
+    state.personSpawnInterval = cfg.personIntervalMin + Math.random() * (cfg.personIntervalMax - cfg.personIntervalMin);
+    birds = [];
+    people = [];
+    particles = [];
+    popups = [];
+    overlay.classList.add('hidden');
+    updateHUD();
+  }
+
+  function endGame() {
+    state.running = false;
+    document.getElementById('overlay-title').textContent = '게임 종료';
+    document.getElementById('overlay-message').innerHTML = `최종 점수: <b>${state.score}</b><br>다시 도전해보세요!`;
+    overlay.classList.remove('hidden');
+  }
+
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => startGame(btn.dataset.difficulty));
+  });
+
+  // ---------- 메인 루프 ----------
+  let lastTime = performance.now();
+  function loop(now) {
+    const dt = Math.min(now - lastTime, 50);
+    lastTime = now;
+
+    drawBackground(dt);
+    bushes.forEach(drawBush);
+
+    if (state.running) {
+      const cfg = state.difficultyConfig;
+      state.time += dt;
+      state.spawnTimer += dt;
+      state.spawnInterval = Math.max(cfg.spawnIntervalMin, cfg.spawnIntervalBase - state.score * cfg.spawnScoreFactor);
+      if (state.spawnTimer >= state.spawnInterval && birds.filter(b=>b.alive).length < cfg.maxBirds) {
+        state.spawnTimer = 0;
+        spawnBird();
+      }
+      updateBirds(dt);
+
+      state.personSpawnTimer += dt;
+      if (state.personSpawnTimer >= state.personSpawnInterval && people.length === 0) {
+        state.personSpawnTimer = 0;
+        state.personSpawnInterval = cfg.personIntervalMin + Math.random() * (cfg.personIntervalMax - cfg.personIntervalMin);
+        spawnPerson();
+      }
+      updatePeople(dt);
+    }
+
+    people.forEach(drawPerson);
+    birds.forEach(drawBird);
+
+    updateParticles(dt);
+    updatePopups(dt);
+    drawPopups();
+
+    if (flash > 0) flash -= dt;
+
+    drawGun();
+    drawParticles();
+    drawCrosshair();
+
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+  updateHUD();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
