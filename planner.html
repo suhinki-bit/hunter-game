@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>일정 관리 + 스케치</title>
+<style>
+  :root {
+    /* 도트 간격: 1cm (실제 물리 단위). 태블릿 화면에서 실측 1cm 간격으로 찍힘 */
+    --dot-gap: 1cm;
+    --dot-color: #c9d2dc;
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --line: #dfe4ea;
+    --ink: #2b3440;
+    --muted: #8a95a3;
+    --accent: #3b82f6;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+    -webkit-user-select: none; user-select: none;
+    overscroll-behavior: none;
+  }
+  body { display: flex; flex-direction: column; }
+
+  /* ── 상단 툴바 ───────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 8px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -0.3px; }
+  header .date { font-size: 13px; color: var(--muted); margin-left: 2px; }
+  .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .tool-btn {
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 10px; padding: 7px 12px; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; transition: all .12s;
+  }
+  .tool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tool-btn:active { transform: scale(0.96); }
+  .swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
+  .swatch.active { box-shadow: 0 0 0 2px var(--accent); }
+
+  /* ── 메인 레이아웃 (PDF 기준): 상단 스케치 전체 / 하단 3등분 ─── */
+  main {
+    flex: 1 1 auto; min-height: 0;
+    display: flex; flex-direction: column;
+    gap: 12px; padding: 12px;
+  }
+  .sketch-panel { flex: 2.71 1 0; min-height: 0; }  /* PDF 비율: 상단 약 73% */
+  .bottom-row {
+    flex: 1 1 0; min-height: 180px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    display: flex; flex-direction: column;
+    min-height: 0; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(20,30,50,.04);
+  }
+  .panel-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .panel-head h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.2px; }
+  .panel-head h2 .en { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; margin-left: 2px; }
+  .panel-head .sub { font-size: 11px; color: var(--muted); }
+  .panel-head .spacer { margin-left: auto; }
+  .mini-btn {
+    border: none; background: transparent; color: var(--muted);
+    font-size: 12px; cursor: pointer; padding: 4px 8px; border-radius: 8px;
+  }
+  .mini-btn:hover { background: #f1f4f8; color: var(--ink); }
+
+  .panel-body { flex: 1 1 auto; min-height: 0; position: relative; }
+
+  /* ── 도트 그리드 (1cm 간격) ─────────────────── */
+  .dotgrid {
+    background-image: radial-gradient(circle, var(--dot-color) 1.1px, transparent 1.2px);
+    background-size: var(--dot-gap) var(--dot-gap);
+    background-position: 8px 8px;
+  }
+  /* 캔버스는 도트 위에 투명하게 얹힘 */
+  canvas.draw-layer {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    touch-action: none; /* 펜으로 그릴 때 스크롤/제스처 방지 */
+    display: block;
+  }
+
+  /* ── 할일 리스트 ───────────────────────────── */
+  .todo-body { overflow-y: auto; padding: 6px 8px 10px; -webkit-overflow-scrolling: touch; }
+  .todo-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 8px; border-radius: 10px;
+  }
+  .todo-item:hover { background: #f7f9fc; }
+  .todo-item input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 20px; height: 20px; border: 2px solid #c3ccd8; border-radius: 6px;
+    cursor: pointer; flex: 0 0 auto; position: relative; transition: all .12s;
+  }
+  .todo-item input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+  .todo-item input[type="checkbox"]:checked::after {
+    content: ""; position: absolute; left: 5px; top: 1px;
+    width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .todo-item .txt {
+    flex: 1 1 auto; font-size: 14px; border: none; background: transparent;
+    outline: none; color: var(--ink); padding: 2px 0;
+  }
+  .todo-item.done .txt { text-decoration: line-through; color: var(--muted); }
+  .todo-item .del { opacity: 0; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 2px 6px; }
+  .todo-item:hover .del { opacity: 1; }
+  .add-row {
+    display: flex; align-items: center; gap: 8px; padding: 6px 12px 4px;
+  }
+  .add-row input {
+    flex: 1 1 auto; border: 1px dashed var(--line); background: #fbfcfe;
+    border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none;
+  }
+  .add-row input:focus { border-color: var(--accent); border-style: solid; }
+
+  @media (max-width: 640px) {
+    .bottom-row { grid-template-columns: 1fr; min-height: 0; }
+    main { overflow-y: auto; }
+    .bottom-row .panel { min-height: 200px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>📓 일정 &amp; 스케치</h1>
+    <span class="date" id="todayLabel"></span>
+    <div class="tools">
+      <button class="tool-btn active" id="penBtn" title="펜">✏️ 펜</button>
+      <button class="tool-btn" id="eraserBtn" title="지우개">🧽 지우개</button>
+      <span class="swatch active" data-color="#2b3440" style="background:#2b3440"></span>
+      <span class="swatch" data-color="#3b82f6" style="background:#3b82f6"></span>
+      <span class="swatch" data-color="#ef4444" style="background:#ef4444"></span>
+      <span class="swatch" data-color="#22a06b" style="background:#22a06b"></span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. 스케치 (상단 전체) -->
+    <section class="panel sketch-panel">
+      <div class="panel-head">
+        <h2>✍️ 스케치 <span class="en">SKETCH</span></h2>
+        <span class="sub">애플펜슬 · 태블릿 펜으로 자유롭게</span>
+        <span class="spacer"></span>
+        <button class="mini-btn" data-clear="sketch">전체 지우기</button>
+      </div>
+      <div class="panel-body dotgrid">
+        <canvas class="draw-layer" id="sketchCanvas"></canvas>
+      </div>
+    </section>
+
+    <!-- 하단 3등분: 오늘 / 내일 / BACK BURNER -->
+    <div class="bottom-row">
+      <!-- 2. 오늘 할일 -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>☀️ 오늘 할일 <span class="en">TODAY</span></h2>
+          <span class="spacer"></span>
+          <span class="sub" id="todayCount"></span>
+        </div>
+        <div class="add-row">
+          <input type="text" id="todayInput" placeholder="오늘 할 일 + Enter">
+        </div>
+        <div class="panel-body todo-body" id="todayList"></div>
+      </section>
+
+      <!-- 3. 내일 할일 -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>🌙 내일 할일 <span class="en">TOMORROW</span></h2>
+          <span class="spacer"></span>
+          <span class="sub" id="tomorrowCount"></span>
+        </div>
+        <div class="add-row">
+          <input type="text" id="tomorrowInput" placeholder="내일 할 일 + Enter">
+        </div>
+        <div class="panel-body todo-body" id="tomorrowList"></div>
+      </section>
+
+      <!-- 4. BACK BURNER -->
+      <section class="panel">
+        <div class="panel-head">
+          <h2>🗄️ BACK BURNER</h2>
+          <span class="spacer"></span>
+          <button class="mini-btn" data-clear="burner">전체 지우기</button>
+        </div>
+        <div class="panel-body dotgrid">
+          <canvas class="draw-layer" id="burnerCanvas"></canvas>
+        </div>
+      </section>
+    </div>
+  </main>
+
+<script>
+(function () {
+  "use strict";
+  const STORE_KEY = "planner_v1";
+
+  /* ── 전역 그리기 상태 ───────────────────────── */
+  const state = {
+    tool: "pen",         // "pen" | "eraser"
+    color: "#2b3440",
+    penSize: 2.2,
+    eraserSize: 22,
+    penUsedEver: false,  // 팜리젝션: 펜이 감지되면 손가락(touch) 입력 무시
+  };
+
+  /* ── 저장/불러오기 ─────────────────────────── */
+  function loadStore() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+  let store = loadStore();
+  let saveTimer = null;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      store.sketch = sketch.strokes;
+      store.burner = burner.strokes;
+      store.today = todayTasks;
+      store.tomorrow = tomorrowTasks;
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+    }, 300);
+  }
+
+  /* ── 스케치 캔버스 팩토리 ───────────────────── */
+  function createBoard(canvas, initialStrokes) {
+    const ctx = canvas.getContext("2d");
+    let dpr = 1;
+    const strokes = initialStrokes ? initialStrokes.slice() : []; // {color,size,erase,pts:[{x,y,p}]}
+    let cur = null;
+
+    function resize() {
+      dpr = window.devicePixelRatio || 1;
+      const r = canvas.getBoundingClientRect();
+      canvas.width = Math.round(r.width * dpr);
+      canvas.height = Math.round(r.height * dpr);
+      redraw();
+    }
+
+    function drawStroke(s) {
+      if (s.pts.length === 0) return;
+      ctx.globalCompositeOperation = s.erase ? "destination-out" : "source-over";
+      ctx.strokeStyle = s.color;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      if (s.pts.length === 1) {
+        const p = s.pts[0];
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(p.x * dpr, p.y * dpr, (s.size * (0.6 + p.p)) * dpr / 2, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+      for (let i = 1; i < s.pts.length; i++) {
+        const a = s.pts[i - 1], b = s.pts[i];
+        ctx.lineWidth = s.size * (0.6 + b.p) * dpr;
+        ctx.beginPath();
+        ctx.moveTo(a.x * dpr, a.y * dpr);
+        ctx.lineTo(b.x * dpr, b.y * dpr);
+        ctx.stroke();
+      }
+    }
+
+    function redraw() {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      strokes.forEach(drawStroke);
+    }
+
+    function pointFrom(e) {
+      const r = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - r.left,
+        y: e.clientY - r.top,
+        p: e.pressure && e.pressure > 0 ? e.pressure : 0.5,
+      };
+    }
+
+    function allowInput(e) {
+      if (e.pointerType === "pen") { state.penUsedEver = true; return true; }
+      if (e.pointerType === "mouse") return true;
+      // touch(손가락): 펜을 한 번이라도 쓴 기기면 팜리젝션으로 무시
+      return !state.penUsedEver;
+    }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (!allowInput(e)) return;
+      e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      const erase = state.tool === "eraser";
+      cur = {
+        color: erase ? "rgba(0,0,0,1)" : state.color,
+        size: erase ? state.eraserSize : state.penSize,
+        erase,
+        pts: [pointFrom(e)],
+      };
+      strokes.push(cur);
+      drawStroke(cur);
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!cur) return;
+      e.preventDefault();
+      // 연속 이벤트(고빈도) 지원 — 애플펜슬/삼성펜 부드럽게
+      const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      for (const ev of events) {
+        cur.pts.push(pointFrom(ev));
+      }
+      redraw();
+    });
+
+    function finish(e) {
+      if (!cur) return;
+      cur = null;
+      scheduleSave();
+    }
+    canvas.addEventListener("pointerup", finish);
+    canvas.addEventListener("pointercancel", finish);
+    canvas.addEventListener("pointerleave", finish);
+
+    function clear() {
+      strokes.length = 0;
+      redraw();
+      scheduleSave();
+    }
+
+    new ResizeObserver(resize).observe(canvas);
+    resize();
+
+    return { get strokes() { return strokes; }, clear };
+  }
+
+  const sketch = createBoard(document.getElementById("sketchCanvas"), store.sketch);
+  const burner = createBoard(document.getElementById("burnerCanvas"), store.burner);
+
+  /* ── 툴바 ─────────────────────────────────── */
+  const penBtn = document.getElementById("penBtn");
+  const eraserBtn = document.getElementById("eraserBtn");
+  penBtn.addEventListener("click", () => setTool("pen"));
+  eraserBtn.addEventListener("click", () => setTool("eraser"));
+  function setTool(t) {
+    state.tool = t;
+    penBtn.classList.toggle("active", t === "pen");
+    eraserBtn.classList.toggle("active", t === "eraser");
+  }
+  document.querySelectorAll(".swatch").forEach((sw) => {
+    sw.addEventListener("click", () => {
+      state.color = sw.dataset.color;
+      setTool("pen");
+      document.querySelectorAll(".swatch").forEach((s) => s.classList.remove("active"));
+      sw.classList.add("active");
+    });
+  });
+  document.querySelectorAll("[data-clear]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const which = btn.dataset.clear;
+      if (!confirm("이 영역을 전체 지울까요?")) return;
+      (which === "sketch" ? sketch : burner).clear();
+    });
+  });
+
+  /* ── 할일 리스트 ───────────────────────────── */
+  let todayTasks = store.today || [];
+  let tomorrowTasks = store.tomorrow || [];
+
+  function makeList(tasks, listEl, inputEl, countEl) {
+    function render() {
+      listEl.innerHTML = "";
+      tasks.forEach((task, idx) => {
+        const row = document.createElement("div");
+        row.className = "todo-item" + (task.done ? " done" : "");
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = !!task.done;
+        cb.addEventListener("change", () => { task.done = cb.checked; render(); scheduleSave(); });
+
+        const txt = document.createElement("input");
+        txt.type = "text";
+        txt.className = "txt";
+        txt.value = task.text;
+        txt.addEventListener("input", () => { task.text = txt.value; scheduleSave(); });
+
+        const del = document.createElement("button");
+        del.className = "del";
+        del.textContent = "✕";
+        del.addEventListener("click", () => { tasks.splice(idx, 1); render(); scheduleSave(); });
+
+        row.append(cb, txt, del);
+        listEl.appendChild(row);
+      });
+      const remaining = tasks.filter((t) => !t.done).length;
+      countEl.textContent = tasks.length ? `${remaining} / ${tasks.length}` : "";
+    }
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && inputEl.value.trim()) {
+        tasks.push({ text: inputEl.value.trim(), done: false });
+        inputEl.value = "";
+        render();
+        scheduleSave();
+      }
+    });
+    render();
+  }
+
+  makeList(todayTasks, document.getElementById("todayList"),
+           document.getElementById("todayInput"), document.getElementById("todayCount"));
+  makeList(tomorrowTasks, document.getElementById("tomorrowList"),
+           document.getElementById("tomorrowInput"), document.getElementById("tomorrowCount"));
+
+  /* ── 날짜 표시 ─────────────────────────────── */
+  const now = new Date();
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  document.getElementById("todayLabel").textContent =
+    `${now.getFullYear()}. ${now.getMonth() + 1}. ${now.getDate()} (${days[now.getDay()]})`;
+})();
+</script>
+</body>
+</html>
