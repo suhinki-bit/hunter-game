@@ -190,9 +190,8 @@
   const leaderboardListEl = document.getElementById('leaderboard-list');
 
   // ---------- Supabase 랭킹 연동 ----------
-  // TODO: Supabase 프로젝트를 만든 후 아래 두 값을 Project Settings > API 에서 복사해 채워넣으세요.
-  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+  const SUPABASE_URL = 'https://bhonlfpeegttscxggdqt.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_R1xceGZF0OAEidURmum9LQ_0IR6uASX';
 
   const supabaseClient = (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase)
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
