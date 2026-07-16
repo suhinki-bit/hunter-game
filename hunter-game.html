@@ -78,6 +78,47 @@
   .diff-btn.easy { background: #4caf50; }
   .diff-btn.normal { background: #3d8bd6; }
   .diff-btn.hard { background: #e04545; }
+  #score-submit {
+    margin-top: 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  #score-submit input {
+    padding: 9px 14px;
+    border-radius: 20px;
+    border: none;
+    font-size: 16px;
+    width: 170px;
+  }
+  #score-submit button {
+    padding: 9px 20px;
+    border-radius: 20px;
+    border: none;
+    background: #ffd93d;
+    color: #333;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #score-submit button:disabled { opacity: 0.6; cursor: default; }
+  #submit-status { font-size: 14px; min-width: 110px; text-align: left; }
+  #leaderboard {
+    margin-top: 22px;
+    max-height: 220px;
+    overflow-y: auto;
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 20px;
+    min-width: 300px;
+  }
+  #leaderboard h2 { font-size: 18px; margin: 4px 0 8px; }
+  #leaderboard-list { list-style: none; margin: 0; padding: 0; font-size: 15px; text-align: left; }
+  #leaderboard-list li { display: flex; gap: 10px; padding: 3px 0; align-items: baseline; }
+  .lb-rank { width: 22px; font-weight: bold; color: #ffd93d; }
+  .lb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb-diff { opacity: 0.7; font-size: 12px; }
+  .lb-score { font-weight: bold; }
+  .lb-empty { opacity: 0.7; justify-content: center; }
   #reload-msg {
     position: fixed;
     bottom: 14%;
@@ -119,8 +160,20 @@
     <div class="diff-btn normal" data-difficulty="normal">NORMAL</div>
     <div class="diff-btn hard" data-difficulty="hard">HARD</div>
   </div>
+
+  <div id="score-submit" class="hidden">
+    <input id="nickname-input" type="text" maxlength="20" placeholder="닉네임 입력 (최대 20자)">
+    <button id="submit-score-btn">랭킹 등록</button>
+    <span id="submit-status"></span>
+  </div>
+
+  <div id="leaderboard">
+    <h2>🏆 랭킹 TOP 10</h2>
+    <ol id="leaderboard-list"><li class="lb-empty">불러오는 중...</li></ol>
+  </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 (() => {
   const canvas = document.getElementById('game');
@@ -130,6 +183,82 @@
   const ammoDotsEl = document.getElementById('ammo-dots');
   const overlay = document.getElementById('overlay');
   const reloadMsg = document.getElementById('reload-msg');
+  const scoreSubmitBox = document.getElementById('score-submit');
+  const nicknameInput = document.getElementById('nickname-input');
+  const submitScoreBtn = document.getElementById('submit-score-btn');
+  const submitStatus = document.getElementById('submit-status');
+  const leaderboardListEl = document.getElementById('leaderboard-list');
+
+  // ---------- Supabase 랭킹 연동 ----------
+  // TODO: Supabase 프로젝트를 만든 후 아래 두 값을 Project Settings > API 에서 복사해 채워넣으세요.
+  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+  const supabaseClient = (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY' && window.supabase)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function difficultyLabel(d) {
+    return { easy: 'EASY', normal: 'NORMAL', hard: 'HARD' }[d] || d;
+  }
+
+  async function submitScore(nickname, score, difficulty) {
+    if (!supabaseClient) return { error: 'Supabase가 아직 설정되지 않았습니다.' };
+    const { error } = await supabaseClient.from('scores').insert({ nickname, score, difficulty });
+    return { error: error ? error.message : null };
+  }
+
+  async function renderLeaderboard() {
+    if (!supabaseClient) {
+      leaderboardListEl.innerHTML = '<li class="lb-empty">Supabase 설정 후 이용 가능합니다</li>';
+      return;
+    }
+    leaderboardListEl.innerHTML = '<li class="lb-empty">불러오는 중...</li>';
+    const { data, error } = await supabaseClient
+      .from('scores')
+      .select('nickname, score, difficulty')
+      .order('score', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      leaderboardListEl.innerHTML = '<li class="lb-empty">랭킹을 불러오지 못했습니다</li>';
+      return;
+    }
+    if (!data || data.length === 0) {
+      leaderboardListEl.innerHTML = '<li class="lb-empty">아직 등록된 기록이 없습니다</li>';
+      return;
+    }
+    leaderboardListEl.innerHTML = data.map((row, i) => `
+      <li>
+        <span class="lb-rank">${i + 1}</span>
+        <span class="lb-name">${escapeHtml(row.nickname)}</span>
+        <span class="lb-diff">${difficultyLabel(row.difficulty)}</span>
+        <span class="lb-score">${row.score}</span>
+      </li>
+    `).join('');
+  }
+
+  submitScoreBtn.addEventListener('click', async () => {
+    const nickname = nicknameInput.value.trim();
+    if (!nickname) {
+      submitStatus.textContent = '닉네임을 입력하세요';
+      return;
+    }
+    submitScoreBtn.disabled = true;
+    submitStatus.textContent = '등록 중...';
+    const { error } = await submitScore(nickname, state.score, state.difficulty);
+    if (error) {
+      submitStatus.textContent = '등록 실패: ' + error;
+      submitScoreBtn.disabled = false;
+    } else {
+      submitStatus.textContent = '등록 완료!';
+      renderLeaderboard();
+    }
+  });
 
   // ---------- 총소리 (Web Audio API로 합성) ----------
   let audioCtx = null;
@@ -1165,6 +1294,7 @@
     particles = [];
     popups = [];
     overlay.classList.add('hidden');
+    scoreSubmitBox.classList.add('hidden');
     updateHUD();
   }
 
@@ -1172,6 +1302,10 @@
     state.running = false;
     document.getElementById('overlay-title').textContent = '게임 종료';
     document.getElementById('overlay-message').innerHTML = `최종 점수: <b>${state.score}</b><br>다시 도전해보세요!`;
+    nicknameInput.value = '';
+    submitStatus.textContent = '';
+    submitScoreBtn.disabled = false;
+    scoreSubmitBox.classList.remove('hidden');
     overlay.classList.remove('hidden');
   }
 
@@ -1227,6 +1361,7 @@
   window.addEventListener('resize', resize);
   resize();
   updateHUD();
+  renderLeaderboard();
   requestAnimationFrame(loop);
 })();
 </script>
