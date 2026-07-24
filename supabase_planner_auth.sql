@@ -8,9 +8,13 @@ create extension if not exists pgcrypto;
 
 -- ------------------------------------------------------------
 -- 1) 계정 3개 생성
---    관리자 sketchmemo1 / 팀원 sketchmemo2 / 열람자 sketchmemoax
+--    관리자 sketchmemo1 / 팀원 sketchmemo2 / 열람자 aumleeax
 --    로그인 시 앱이 아이디 뒤에 @sketchmemo.app 을 자동으로 붙입니다.
 -- ------------------------------------------------------------
+
+-- 구 열람자 계정 정리 (sketchmemoax -> aumleeax 로 변경됨)
+delete from auth.users where email = 'sketchmemoax@sketchmemo.app';
+
 do $$
 declare
   acct record;
@@ -18,9 +22,9 @@ declare
 begin
   for acct in
     select * from (values
-      ('sketchmemo1@sketchmemo.app',  '1234',   'sketchmemo1',  'admin'),
-      ('sketchmemo2@sketchmemo.app',  '4321',   'sketchmemo2',  'editor'),
-      ('sketchmemoax@sketchmemo.app', '1234ax', 'sketchmemoax', 'viewer')
+      ('sketchmemo1@sketchmemo.app', '1234',       'sketchmemo1', 'admin'),
+      ('sketchmemo2@sketchmemo.app', '4321',       'sketchmemo2', 'editor'),
+      ('aumleeax@sketchmemo.app',    'aumleeax!)', 'aumleeax',    'viewer')
     ) as t(email, pw, username, role)
   loop
     -- 기존 동일 계정 제거 (identities 는 cascade 로 함께 삭제)
