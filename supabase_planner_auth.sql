@@ -24,7 +24,7 @@ begin
     select * from (values
       ('sketchmemo1@sketchmemo.app', '1234',       'sketchmemo1', 'admin'),
       ('sketchmemo2@sketchmemo.app', '4321',       'sketchmemo2', 'editor'),
-      ('aumleeax@sketchmemo.app',    'aumleeax!)', 'aumleeax',    'viewer')
+      ('aumleeax@sketchmemo.app',    'aumleeax!',  'aumleeax',    'viewer')
     ) as t(email, pw, username, role)
   loop
     -- 기존 동일 계정 제거 (identities 는 cascade 로 함께 삭제)

@@ -1,7 +1,7 @@
 -- ============================================================
 --  열람자 계정 변경
 --    변경 전 : sketchmemoax / 1234ax
---    변경 후 : aumleeax     / aumleeax!)
+--    변경 후 : aumleeax     / aumleeax!
 --
 --  Supabase 대시보드 > SQL Editor 에 붙여넣고 RUN 하세요.
 --  관리자(sketchmemo1) · 팀원(sketchmemo2) 계정은 건드리지 않습니다.
@@ -13,7 +13,7 @@ create extension if not exists pgcrypto;
 do $$
 declare
   v_email    text := 'aumleeax@sketchmemo.app';
-  v_pw       text := 'aumleeax!)';
+  v_pw       text := 'aumleeax!';
   v_username text := 'aumleeax';
   uid        uuid;
 begin
