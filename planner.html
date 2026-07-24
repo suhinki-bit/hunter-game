@@ -170,6 +170,12 @@
     -webkit-user-select: text; user-select: text;
   }
   .add-row input:focus { border-color: var(--accent); border-style: solid; }
+  .add-btn {
+    flex: 0 0 auto; width: 32px; height: 32px; border: none; border-radius: 9px;
+    background: var(--accent); color: #fff; font-size: 17px; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+  .add-btn:active { transform: scale(0.93); }
 
   /* ── 열람 전용 모드 ────────────────────────── */
   body.readonly .add-row,
@@ -249,9 +255,10 @@
           <span class="spacer"></span>
           <span class="sub" id="todayCount"></span>
         </div>
-        <div class="add-row">
-          <input type="text" id="todayInput" placeholder="오늘 할 일 + Enter">
-        </div>
+        <form class="add-row" id="todayAdd">
+          <input type="text" id="todayInput" placeholder="오늘 할 일 입력" enterkeyhint="done">
+          <button type="submit" class="add-btn" title="추가">＋</button>
+        </form>
         <div class="panel-body todo-body" id="todayList"></div>
       </section>
 
@@ -261,9 +268,10 @@
           <span class="spacer"></span>
           <span class="sub" id="tomorrowCount"></span>
         </div>
-        <div class="add-row">
-          <input type="text" id="tomorrowInput" placeholder="내일 할 일 + Enter">
-        </div>
+        <form class="add-row" id="tomorrowAdd">
+          <input type="text" id="tomorrowInput" placeholder="내일 할 일 입력" enterkeyhint="done">
+          <button type="submit" class="add-btn" title="추가">＋</button>
+        </form>
         <div class="panel-body todo-body" id="tomorrowList"></div>
       </section>
 
@@ -419,7 +427,7 @@
   const burner = createBoard($("burnerCanvas"));
 
   /* ── 할일 리스트 ───────────────────────────── */
-  function makeList(listEl, inputEl, countEl) {
+  function makeList(listEl, formEl, inputEl, countEl) {
     let tasks = [];
 
     function render() {
@@ -453,13 +461,17 @@
       countEl.textContent = tasks.length ? `${remaining} / ${tasks.length}` : "";
     }
 
-    inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && inputEl.value.trim() && state.canWrite) {
-        tasks.push({ text: inputEl.value.trim(), done: false });
-        inputEl.value = "";
-        render();
-        scheduleSave();
-      }
+    // 한글 IME 조합 중에는 keydown 의 Enter 가 잡히지 않고, 태블릿 가상 키보드도
+    // 동작이 제각각이라 form submit(+ 추가 버튼)으로 처리한다.
+    formEl.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const v = inputEl.value.trim();
+      if (!v || !state.canWrite) return;
+      tasks.push({ text: v, done: false });
+      inputEl.value = "";
+      render();
+      scheduleSave();
+      inputEl.focus();
     });
 
     return {
@@ -469,8 +481,8 @@
     };
   }
 
-  const todayList = makeList($("todayList"), $("todayInput"), $("todayCount"));
-  const tomorrowList = makeList($("tomorrowList"), $("tomorrowInput"), $("tomorrowCount"));
+  const todayList = makeList($("todayList"), $("todayAdd"), $("todayInput"), $("todayCount"));
+  const tomorrowList = makeList($("tomorrowList"), $("tomorrowAdd"), $("tomorrowInput"), $("tomorrowCount"));
 
   /* ── 저장 / 불러오기 ───────────────────────── */
   const syncEl = $("syncState");
@@ -511,8 +523,14 @@
     tomorrowList.setTasks(row.tomorrow);
   }
 
+  // 할일 텍스트를 입력하는 중에 원격 갱신이 들어오면 타이핑이 날아가므로 보류한다.
+  function isEditingText() {
+    const el = document.activeElement;
+    return !!el && el.tagName === "INPUT" && el.type === "text";
+  }
+
   function applyPendingRemote() {
-    if (state.pendingRemote && !state.drawing) {
+    if (state.pendingRemote && !state.drawing && !isEditingText()) {
       applyBoard(state.pendingRemote);
       state.pendingRemote = null;
       setSync("갱신됨");
@@ -536,13 +554,17 @@
           const row = payload.new;
           // 내가 방금 저장한 내용의 메아리는 무시
           if (row.updated_by === state.username && Date.now() - lastSavedAt < 3000) return;
-          if (state.drawing) { state.pendingRemote = row; return; }  // 필기 중이면 잠시 보류
+          // 필기 중이거나 할일을 입력하는 중이면 끊기지 않도록 잠시 보류
+          if (state.drawing || isEditingText()) { state.pendingRemote = row; return; }
           applyBoard(row);
           setSync("갱신됨");
           setTimeout(() => setSync(""), 1500);
         })
       .subscribe();
   }
+
+  // 입력이 끝나면 보류해 둔 원격 갱신을 반영
+  document.addEventListener("focusout", () => setTimeout(applyPendingRemote, 150));
 
   /* ── 툴바 ─────────────────────────────────── */
   $("penBtn").addEventListener("click", () => setTool("pen"));
