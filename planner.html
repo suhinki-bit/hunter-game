@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>일정 관리 + 스케치</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
-    /* 도트 간격: 1cm (실제 물리 단위). 태블릿 화면에서 실측 1cm 간격으로 찍힘 */
+    /* 도트 간격: 1cm (실제 물리 단위) */
     --dot-gap: 1cm;
     --dot-color: #c9d2dc;
     --bg: #eef1f5;
@@ -26,36 +27,79 @@
     -webkit-user-select: none; user-select: none;
     overscroll-behavior: none;
   }
-  body { display: flex; flex-direction: column; }
 
-  /* ── 상단 툴바 ───────────────────────────── */
+  /* ── 로그인 화면 ───────────────────────────── */
+  .login-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: linear-gradient(160deg, #f4f7fb 0%, #e6ecf4 100%);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .login-card {
+    width: 100%; max-width: 340px;
+    background: #fff; border: 1px solid var(--line); border-radius: 18px;
+    padding: 30px 26px 24px;
+    box-shadow: 0 12px 40px rgba(20,35,60,.10);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .login-card h1 { margin: 0; font-size: 19px; text-align: center; letter-spacing: -0.4px; }
+  .login-sub { margin: -6px 0 6px; font-size: 12px; color: var(--muted); text-align: center; }
+  .login-card label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 5px; }
+  .login-card input {
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 12px; font-size: 15px; outline: none; color: var(--ink);
+    -webkit-user-select: text; user-select: text;
+  }
+  .login-card input:focus { border-color: var(--accent); }
+  .login-card button {
+    margin-top: 4px; border: none; background: var(--accent); color: #fff;
+    border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+  }
+  .login-card button:disabled { background: #a9c4ee; cursor: default; }
+  .login-err { font-size: 12.5px; color: #dc2626; text-align: center; min-height: 16px; }
+
+  /* ── 앱 본체 ──────────────────────────────── */
+  #app { display: none; flex-direction: column; height: 100%; }
+  #app.ready { display: flex; }
+
   header {
-    display: flex; align-items: center; gap: 14px;
-    padding: 8px 16px;
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 14px;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
     flex: 0 0 auto;
   }
-  header h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: -0.3px; }
-  header .date { font-size: 13px; color: var(--muted); margin-left: 2px; }
-  .tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; }
+  header .date { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .tools { display: flex; align-items: center; gap: 7px; margin-left: auto; }
   .tool-btn {
     border: 1px solid var(--line); background: #fff; color: var(--ink);
-    border-radius: 10px; padding: 7px 12px; font-size: 13px; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 6px; transition: all .12s;
+    border-radius: 10px; padding: 7px 11px; font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px; transition: all .12s; white-space: nowrap;
   }
   .tool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .tool-btn:active { transform: scale(0.96); }
   .swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
   .swatch.active { box-shadow: 0 0 0 2px var(--accent); }
 
-  /* ── 메인 레이아웃 (PDF 기준): 상단 스케치 전체 / 하단 3등분 ─── */
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--muted); padding-left: 4px; white-space: nowrap;
+  }
+  .role-badge {
+    font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px;
+    background: #eef2ff; color: #4f46e5;
+  }
+  .role-badge.viewer { background: #fff4e5; color: #b45309; }
+  .role-badge.editor { background: #e7f8ef; color: #15803d; }
+  .sync-dot { font-size: 11px; color: var(--muted); min-width: 46px; }
+
+  /* ── 레이아웃 (PDF 기준): 상단 스케치 / 하단 3등분 ─── */
   main {
     flex: 1 1 auto; min-height: 0;
     display: flex; flex-direction: column;
     gap: 12px; padding: 12px;
   }
-  .sketch-panel { flex: 2.71 1 0; min-height: 0; }  /* PDF 비율: 상단 약 73% */
+  .sketch-panel { flex: 2.71 1 0; min-height: 0; }   /* PDF 비율: 상단 약 73% */
   .bottom-row {
     flex: 1 1 0; min-height: 180px;
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
@@ -91,19 +135,15 @@
     background-size: var(--dot-gap) var(--dot-gap);
     background-position: 8px 8px;
   }
-  /* 캔버스는 도트 위에 투명하게 얹힘 */
   canvas.draw-layer {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    touch-action: none; /* 펜으로 그릴 때 스크롤/제스처 방지 */
+    touch-action: none;              /* 펜 필기 중 스크롤/제스처 방지 */
     display: block;
   }
 
   /* ── 할일 리스트 ───────────────────────────── */
   .todo-body { overflow-y: auto; padding: 6px 8px 10px; -webkit-overflow-scrolling: touch; }
-  .todo-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 7px 8px; border-radius: 10px;
-  }
+  .todo-item { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; }
   .todo-item:hover { background: #f7f9fc; }
   .todo-item input[type="checkbox"] {
     appearance: none; -webkit-appearance: none;
@@ -118,30 +158,60 @@
   .todo-item .txt {
     flex: 1 1 auto; font-size: 14px; border: none; background: transparent;
     outline: none; color: var(--ink); padding: 2px 0;
+    -webkit-user-select: text; user-select: text;
   }
   .todo-item.done .txt { text-decoration: line-through; color: var(--muted); }
   .todo-item .del { opacity: 0; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 2px 6px; }
   .todo-item:hover .del { opacity: 1; }
-  .add-row {
-    display: flex; align-items: center; gap: 8px; padding: 6px 12px 4px;
-  }
+  .add-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px 4px; }
   .add-row input {
     flex: 1 1 auto; border: 1px dashed var(--line); background: #fbfcfe;
     border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none;
+    -webkit-user-select: text; user-select: text;
   }
   .add-row input:focus { border-color: var(--accent); border-style: solid; }
+
+  /* ── 열람 전용 모드 ────────────────────────── */
+  body.readonly .add-row,
+  body.readonly .todo-item .del,
+  body.readonly [data-clear],
+  body.readonly #penBtn,
+  body.readonly #eraserBtn,
+  body.readonly .swatch { display: none; }
+  body.readonly .todo-item input[type="checkbox"] { cursor: default; }
 
   @media (max-width: 640px) {
     .bottom-row { grid-template-columns: 1fr; min-height: 0; }
     main { overflow-y: auto; }
     .bottom-row .panel { min-height: 200px; }
+    header { flex-wrap: wrap; }
   }
 </style>
 </head>
 <body>
+
+<!-- ── 로그인 ───────────────────────────────── -->
+<div class="login-overlay" id="loginOverlay">
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <h1>📓 일정 &amp; 스케치</h1>
+    <p class="login-sub">허가된 계정만 접근할 수 있습니다</p>
+    <label>아이디
+      <input type="text" id="loginUser" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+    </label>
+    <label>패스워드
+      <input type="password" id="loginPw" autocomplete="current-password" required>
+    </label>
+    <button type="submit" id="loginBtn">로그인</button>
+    <div class="login-err" id="loginErr"></div>
+  </form>
+</div>
+
+<!-- ── 앱 ───────────────────────────────────── -->
+<div id="app">
   <header>
     <h1>📓 일정 &amp; 스케치</h1>
     <span class="date" id="todayLabel"></span>
+    <span class="sync-dot" id="syncState"></span>
     <div class="tools">
       <button class="tool-btn active" id="penBtn" title="펜">✏️ 펜</button>
       <button class="tool-btn" id="eraserBtn" title="지우개">🧽 지우개</button>
@@ -149,6 +219,11 @@
       <span class="swatch" data-color="#3b82f6" style="background:#3b82f6"></span>
       <span class="swatch" data-color="#ef4444" style="background:#ef4444"></span>
       <span class="swatch" data-color="#22a06b" style="background:#22a06b"></span>
+      <span class="user-chip">
+        <span id="userName"></span>
+        <span class="role-badge" id="roleBadge"></span>
+      </span>
+      <button class="tool-btn" id="logoutBtn">로그아웃</button>
     </div>
   </header>
 
@@ -168,7 +243,6 @@
 
     <!-- 하단 3등분: 오늘 / 내일 / BACK BURNER -->
     <div class="bottom-row">
-      <!-- 2. 오늘 할일 -->
       <section class="panel">
         <div class="panel-head">
           <h2>☀️ 오늘 할일 <span class="en">TODAY</span></h2>
@@ -181,7 +255,6 @@
         <div class="panel-body todo-body" id="todayList"></div>
       </section>
 
-      <!-- 3. 내일 할일 -->
       <section class="panel">
         <div class="panel-head">
           <h2>🌙 내일 할일 <span class="en">TOMORROW</span></h2>
@@ -194,7 +267,6 @@
         <div class="panel-body todo-body" id="tomorrowList"></div>
       </section>
 
-      <!-- 4. BACK BURNER -->
       <section class="panel">
         <div class="panel-head">
           <h2>🗄️ BACK BURNER</h2>
@@ -207,44 +279,41 @@
       </section>
     </div>
   </main>
+</div>
 
 <script>
 (function () {
   "use strict";
-  const STORE_KEY = "planner_v1";
 
-  /* ── 전역 그리기 상태 ───────────────────────── */
+  /* ── Supabase ─────────────────────────────── */
+  const SUPABASE_URL = 'https://bhonlfpeegttscxggdqt.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_R1xceGZF0OAEidURmum9LQ_0IR6uASX';
+  const EMAIL_DOMAIN = '@sketchmemo.app';   // 아이디 뒤에 자동으로 붙는 도메인
+  const BOARD_ID = 'main';
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  /* ── 상태 ─────────────────────────────────── */
   const state = {
-    tool: "pen",         // "pen" | "eraser"
+    tool: "pen",
     color: "#2b3440",
     penSize: 2.2,
     eraserSize: 22,
-    penUsedEver: false,  // 팜리젝션: 펜이 감지되면 손가락(touch) 입력 무시
+    penUsedEver: false,   // 팜리젝션용
+    canWrite: false,      // admin / editor 만 true
+    username: "",
+    role: "",
+    drawing: false,       // 필기 중에는 원격 갱신을 미룸
+    pendingRemote: null,
   };
 
-  /* ── 저장/불러오기 ─────────────────────────── */
-  function loadStore() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
-    catch (e) { return {}; }
-  }
-  let store = loadStore();
-  let saveTimer = null;
-  function scheduleSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      store.sketch = sketch.strokes;
-      store.burner = burner.strokes;
-      store.today = todayTasks;
-      store.tomorrow = tomorrowTasks;
-      try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
-    }, 300);
-  }
+  const $ = (id) => document.getElementById(id);
 
-  /* ── 스케치 캔버스 팩토리 ───────────────────── */
-  function createBoard(canvas, initialStrokes) {
+  /* ── 스케치 캔버스 ─────────────────────────── */
+  function createBoard(canvas) {
     const ctx = canvas.getContext("2d");
     let dpr = 1;
-    const strokes = initialStrokes ? initialStrokes.slice() : []; // {color,size,erase,pts:[{x,y,p}]}
+    let strokes = [];              // {color,size,erase,pts:[{x,y,p}]}
     let cur = null;
 
     function resize() {
@@ -256,7 +325,7 @@
     }
 
     function drawStroke(s) {
-      if (s.pts.length === 0) return;
+      if (!s.pts || s.pts.length === 0) return;
       ctx.globalCompositeOperation = s.erase ? "destination-out" : "source-over";
       ctx.strokeStyle = s.color;
       ctx.lineCap = "round";
@@ -288,23 +357,24 @@
     function pointFrom(e) {
       const r = canvas.getBoundingClientRect();
       return {
-        x: e.clientX - r.left,
-        y: e.clientY - r.top,
-        p: e.pressure && e.pressure > 0 ? e.pressure : 0.5,
+        x: +(e.clientX - r.left).toFixed(1),
+        y: +(e.clientY - r.top).toFixed(1),
+        p: e.pressure && e.pressure > 0 ? +e.pressure.toFixed(2) : 0.5,
       };
     }
 
     function allowInput(e) {
+      if (!state.canWrite) return false;                       // 열람자는 필기 불가
       if (e.pointerType === "pen") { state.penUsedEver = true; return true; }
       if (e.pointerType === "mouse") return true;
-      // touch(손가락): 펜을 한 번이라도 쓴 기기면 팜리젝션으로 무시
-      return !state.penUsedEver;
+      return !state.penUsedEver;                               // 팜리젝션
     }
 
     canvas.addEventListener("pointerdown", (e) => {
       if (!allowInput(e)) return;
       e.preventDefault();
       canvas.setPointerCapture(e.pointerId);
+      state.drawing = true;
       const erase = state.tool === "eraser";
       cur = {
         color: erase ? "rgba(0,0,0,1)" : state.color,
@@ -319,69 +389,39 @@
     canvas.addEventListener("pointermove", (e) => {
       if (!cur) return;
       e.preventDefault();
-      // 연속 이벤트(고빈도) 지원 — 애플펜슬/삼성펜 부드럽게
-      const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
-      for (const ev of events) {
-        cur.pts.push(pointFrom(ev));
-      }
+      const evts = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];  // 펜 고빈도 좌표
+      for (const ev of evts) cur.pts.push(pointFrom(ev));
       redraw();
     });
 
-    function finish(e) {
+    function finish() {
       if (!cur) return;
       cur = null;
+      state.drawing = false;
       scheduleSave();
+      applyPendingRemote();
     }
     canvas.addEventListener("pointerup", finish);
     canvas.addEventListener("pointercancel", finish);
     canvas.addEventListener("pointerleave", finish);
 
-    function clear() {
-      strokes.length = 0;
-      redraw();
-      scheduleSave();
-    }
-
     new ResizeObserver(resize).observe(canvas);
     resize();
 
-    return { get strokes() { return strokes; }, clear };
+    return {
+      get strokes() { return strokes; },
+      setStrokes(arr) { strokes = Array.isArray(arr) ? arr : []; redraw(); },
+      clear() { strokes = []; redraw(); scheduleSave(); },
+    };
   }
 
-  const sketch = createBoard(document.getElementById("sketchCanvas"), store.sketch);
-  const burner = createBoard(document.getElementById("burnerCanvas"), store.burner);
-
-  /* ── 툴바 ─────────────────────────────────── */
-  const penBtn = document.getElementById("penBtn");
-  const eraserBtn = document.getElementById("eraserBtn");
-  penBtn.addEventListener("click", () => setTool("pen"));
-  eraserBtn.addEventListener("click", () => setTool("eraser"));
-  function setTool(t) {
-    state.tool = t;
-    penBtn.classList.toggle("active", t === "pen");
-    eraserBtn.classList.toggle("active", t === "eraser");
-  }
-  document.querySelectorAll(".swatch").forEach((sw) => {
-    sw.addEventListener("click", () => {
-      state.color = sw.dataset.color;
-      setTool("pen");
-      document.querySelectorAll(".swatch").forEach((s) => s.classList.remove("active"));
-      sw.classList.add("active");
-    });
-  });
-  document.querySelectorAll("[data-clear]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const which = btn.dataset.clear;
-      if (!confirm("이 영역을 전체 지울까요?")) return;
-      (which === "sketch" ? sketch : burner).clear();
-    });
-  });
+  const sketch = createBoard($("sketchCanvas"));
+  const burner = createBoard($("burnerCanvas"));
 
   /* ── 할일 리스트 ───────────────────────────── */
-  let todayTasks = store.today || [];
-  let tomorrowTasks = store.tomorrow || [];
+  function makeList(listEl, inputEl, countEl) {
+    let tasks = [];
 
-  function makeList(tasks, listEl, inputEl, countEl) {
     function render() {
       listEl.innerHTML = "";
       tasks.forEach((task, idx) => {
@@ -391,12 +431,14 @@
         const cb = document.createElement("input");
         cb.type = "checkbox";
         cb.checked = !!task.done;
+        cb.disabled = !state.canWrite;
         cb.addEventListener("change", () => { task.done = cb.checked; render(); scheduleSave(); });
 
         const txt = document.createElement("input");
         txt.type = "text";
         txt.className = "txt";
         txt.value = task.text;
+        txt.readOnly = !state.canWrite;
         txt.addEventListener("input", () => { task.text = txt.value; scheduleSave(); });
 
         const del = document.createElement("button");
@@ -410,27 +452,184 @@
       const remaining = tasks.filter((t) => !t.done).length;
       countEl.textContent = tasks.length ? `${remaining} / ${tasks.length}` : "";
     }
+
     inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && inputEl.value.trim()) {
+      if (e.key === "Enter" && inputEl.value.trim() && state.canWrite) {
         tasks.push({ text: inputEl.value.trim(), done: false });
         inputEl.value = "";
         render();
         scheduleSave();
       }
     });
-    render();
+
+    return {
+      get tasks() { return tasks; },
+      setTasks(arr) { tasks = Array.isArray(arr) ? arr : []; render(); },
+      render,
+    };
   }
 
-  makeList(todayTasks, document.getElementById("todayList"),
-           document.getElementById("todayInput"), document.getElementById("todayCount"));
-  makeList(tomorrowTasks, document.getElementById("tomorrowList"),
-           document.getElementById("tomorrowInput"), document.getElementById("tomorrowCount"));
+  const todayList = makeList($("todayList"), $("todayInput"), $("todayCount"));
+  const tomorrowList = makeList($("tomorrowList"), $("tomorrowInput"), $("tomorrowCount"));
 
-  /* ── 날짜 표시 ─────────────────────────────── */
+  /* ── 저장 / 불러오기 ───────────────────────── */
+  const syncEl = $("syncState");
+  let saveTimer = null;
+  let lastSavedAt = 0;
+
+  function setSync(msg) { syncEl.textContent = msg; }
+
+  function scheduleSave() {
+    if (!state.canWrite) return;
+    setSync("저장 중…");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 700);
+  }
+
+  async function saveNow() {
+    if (!state.canWrite) return;
+    const payload = {
+      sketch: sketch.strokes,
+      burner: burner.strokes,
+      today: todayList.tasks,
+      tomorrow: tomorrowList.tasks,
+      updated_at: new Date().toISOString(),
+      updated_by: state.username,
+    };
+    const { error } = await sb.from("boards").update(payload).eq("id", BOARD_ID);
+    if (error) { setSync("저장 실패"); console.error(error); return; }
+    lastSavedAt = Date.now();
+    setSync("저장됨");
+    setTimeout(() => { if (Date.now() - lastSavedAt > 1500) setSync(""); }, 2000);
+  }
+
+  function applyBoard(row) {
+    if (!row) return;
+    sketch.setStrokes(row.sketch);
+    burner.setStrokes(row.burner);
+    todayList.setTasks(row.today);
+    tomorrowList.setTasks(row.tomorrow);
+  }
+
+  function applyPendingRemote() {
+    if (state.pendingRemote && !state.drawing) {
+      applyBoard(state.pendingRemote);
+      state.pendingRemote = null;
+      setSync("갱신됨");
+      setTimeout(() => setSync(""), 1500);
+    }
+  }
+
+  async function loadBoard() {
+    setSync("불러오는 중…");
+    const { data, error } = await sb.from("boards").select("*").eq("id", BOARD_ID).single();
+    if (error) { setSync("불러오기 실패"); console.error(error); return; }
+    applyBoard(data);
+    setSync("");
+  }
+
+  function subscribeRealtime() {
+    sb.channel("board-sync")
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "boards", filter: `id=eq.${BOARD_ID}` },
+        (payload) => {
+          const row = payload.new;
+          // 내가 방금 저장한 내용의 메아리는 무시
+          if (row.updated_by === state.username && Date.now() - lastSavedAt < 3000) return;
+          if (state.drawing) { state.pendingRemote = row; return; }  // 필기 중이면 잠시 보류
+          applyBoard(row);
+          setSync("갱신됨");
+          setTimeout(() => setSync(""), 1500);
+        })
+      .subscribe();
+  }
+
+  /* ── 툴바 ─────────────────────────────────── */
+  $("penBtn").addEventListener("click", () => setTool("pen"));
+  $("eraserBtn").addEventListener("click", () => setTool("eraser"));
+  function setTool(t) {
+    state.tool = t;
+    $("penBtn").classList.toggle("active", t === "pen");
+    $("eraserBtn").classList.toggle("active", t === "eraser");
+  }
+  document.querySelectorAll(".swatch").forEach((sw) => {
+    sw.addEventListener("click", () => {
+      state.color = sw.dataset.color;
+      setTool("pen");
+      document.querySelectorAll(".swatch").forEach((s) => s.classList.remove("active"));
+      sw.classList.add("active");
+    });
+  });
+  document.querySelectorAll("[data-clear]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (!state.canWrite) return;
+      if (!confirm("이 영역을 전체 지울까요?")) return;
+      (btn.dataset.clear === "sketch" ? sketch : burner).clear();
+    });
+  });
+
+  /* ── 날짜 ─────────────────────────────────── */
   const now = new Date();
   const days = ["일", "월", "화", "수", "목", "금", "토"];
-  document.getElementById("todayLabel").textContent =
+  $("todayLabel").textContent =
     `${now.getFullYear()}. ${now.getMonth() + 1}. ${now.getDate()} (${days[now.getDay()]})`;
+
+  /* ── 로그인 처리 ───────────────────────────── */
+  const ROLE_LABEL = { admin: "관리자", editor: "팀원", viewer: "열람 전용" };
+
+  async function startApp(user) {
+    const meta = user.user_metadata || {};
+    state.username = meta.username || (user.email || "").split("@")[0];
+    state.role = meta.role || "viewer";
+    state.canWrite = state.role === "admin" || state.role === "editor";
+
+    $("userName").textContent = state.username;
+    const badge = $("roleBadge");
+    badge.textContent = ROLE_LABEL[state.role] || state.role;
+    badge.className = "role-badge " + state.role;
+    document.body.classList.toggle("readonly", !state.canWrite);
+
+    $("loginOverlay").style.display = "none";
+    $("app").classList.add("ready");
+
+    await loadBoard();
+    subscribeRealtime();
+  }
+
+  $("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("loginBtn"), err = $("loginErr");
+    const id = $("loginUser").value.trim().toLowerCase();
+    const pw = $("loginPw").value;
+    if (!id || !pw) return;
+
+    btn.disabled = true; btn.textContent = "확인 중…"; err.textContent = "";
+
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: id.includes("@") ? id : id + EMAIL_DOMAIN,
+      password: pw,
+    });
+
+    btn.disabled = false; btn.textContent = "로그인";
+
+    if (error) {
+      err.textContent = "아이디 또는 패스워드가 올바르지 않습니다.";
+      $("loginPw").value = "";
+      return;
+    }
+    startApp(data.user);
+  });
+
+  $("logoutBtn").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
+
+  /* ── 기존 세션 자동 복구 ───────────────────── */
+  (async function init() {
+    const { data } = await sb.auth.getSession();
+    if (data && data.session) startApp(data.session.user);
+  })();
 })();
 </script>
 </body>
