@@ -7,8 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
-    /* 도트 간격: 1cm (실제 물리 단위) */
-    --dot-gap: 1cm;
+    --dot-gap: 1cm;                /* 도트 간격: 1cm (실제 물리 단위) */
     --dot-color: #c9d2dc;
     --bg: #eef1f5;
     --panel: #ffffff;
@@ -62,15 +61,15 @@
   #app.ready { display: flex; }
 
   header {
-    display: flex; align-items: center; gap: 12px;
+    display: flex; align-items: center; gap: 10px;
     padding: 8px 14px;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
-    flex: 0 0 auto;
+    flex: 0 0 auto; flex-wrap: wrap;
   }
   header h1 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: -0.3px; white-space: nowrap; }
   header .date { font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .tools { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+  .tools { display: flex; align-items: center; gap: 7px; margin-left: auto; flex-wrap: wrap; }
   .tool-btn {
     border: 1px solid var(--line); background: #fff; color: var(--ink);
     border-radius: 10px; padding: 7px 11px; font-size: 13px; cursor: pointer;
@@ -78,54 +77,33 @@
   }
   .tool-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .tool-btn:active { transform: scale(0.96); }
+  .tool-btn:disabled { opacity: .4; cursor: default; }
   .swatch { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); cursor: pointer; }
   .swatch.active { box-shadow: 0 0 0 2px var(--accent); }
 
-  .user-chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-size: 12px; color: var(--muted); padding-left: 4px; white-space: nowrap;
-  }
-  .role-badge {
-    font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px;
-    background: #eef2ff; color: #4f46e5;
-  }
+  .user-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); padding-left: 4px; white-space: nowrap; }
+  .role-badge { font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px; background: #eef2ff; color: #4f46e5; }
   .role-badge.viewer { background: #fff4e5; color: #b45309; }
   .role-badge.editor { background: #e7f8ef; color: #15803d; }
   .sync-dot { font-size: 11px; color: var(--muted); min-width: 46px; }
 
   /* ── 레이아웃 (PDF 기준): 상단 스케치 / 하단 3등분 ─── */
-  main {
-    flex: 1 1 auto; min-height: 0;
-    display: flex; flex-direction: column;
-    gap: 12px; padding: 12px;
-  }
-  .sketch-panel { flex: 2.71 1 0; min-height: 0; }   /* PDF 비율: 상단 약 73% */
-  .bottom-row {
-    flex: 1 1 0; min-height: 180px;
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
-  }
+  main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+  .sketch-panel { flex: 2.71 1 0; min-height: 0; }   /* 상단 약 73% */
+  .bottom-row { flex: 1 1 0; min-height: 180px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .panel {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    display: flex; flex-direction: column;
-    min-height: 0; overflow: hidden;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
     box-shadow: 0 1px 3px rgba(20,30,50,.04);
   }
-  .panel-head {
-    display: flex; align-items: center; gap: 8px;
-    padding: 9px 14px; border-bottom: 1px solid var(--line);
-    flex: 0 0 auto;
-  }
-  .panel-head h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.2px; }
+  .panel-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex: 0 0 auto; flex-wrap: wrap; }
+  .panel-head h2 { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -0.2px; white-space: nowrap; }
   .panel-head h2 .en { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; margin-left: 2px; }
   .panel-head .sub { font-size: 11px; color: var(--muted); }
   .panel-head .spacer { margin-left: auto; }
-  .mini-btn {
-    border: none; background: transparent; color: var(--muted);
-    font-size: 12px; cursor: pointer; padding: 4px 8px; border-radius: 8px;
-  }
+  .mini-btn { border: none; background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
   .mini-btn:hover { background: #f1f4f8; color: var(--ink); }
+  .weather-chip { font-size: 13px; font-weight: 700; color: #475569; display: inline-flex; align-items: center; gap: 3px; }
 
   .panel-body { flex: 1 1 auto; min-height: 0; position: relative; }
 
@@ -135,11 +113,58 @@
     background-size: var(--dot-gap) var(--dot-gap);
     background-position: 8px 8px;
   }
-  canvas.draw-layer {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    touch-action: none;              /* 펜 필기 중 스크롤/제스처 방지 */
-    display: block;
+
+  /* ── 스케치: 레이어 캔버스 스택 ─────────────── */
+  .sketch-stack { position: absolute; inset: 0; }
+  canvas.layer-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+  canvas.overlay { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; z-index: 50; }
+  #sketchStack { touch-action: none; }   /* 펜 필기 중 스크롤/제스처 방지 */
+
+  .date-badge {
+    position: absolute; top: 8px; right: 10px; z-index: 60; pointer-events: none;
+    font-size: 12px; font-weight: 700; color: #526077; letter-spacing: .3px;
+    background: rgba(255,255,255,.72); padding: 3px 9px; border-radius: 8px;
+    border: 1px solid var(--line);
   }
+
+  /* 단일 캔버스(백버너) */
+  canvas.draw-layer { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; display: block; }
+
+  /* ── 페이지 네비 ───────────────────────────── */
+  .page-nav { display: inline-flex; align-items: center; gap: 4px; }
+  .page-nav button {
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 8px; padding: 4px 8px; font-size: 12px; cursor: pointer; line-height: 1;
+  }
+  .page-nav button:disabled { opacity: .35; cursor: default; }
+  .page-nav .page-info { font-size: 12px; color: var(--muted); min-width: 34px; text-align: center; }
+
+  /* ── 레이어 패널 ───────────────────────────── */
+  .layers-panel {
+    position: absolute; top: 40px; right: 8px; z-index: 70; width: 208px;
+    background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 8px 26px rgba(20,35,60,.14); padding: 8px; display: none;
+  }
+  .layers-panel.open { display: block; }
+  .layers-panel .lp-head { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 8px; }
+  .layers-panel .lp-head strong { font-size: 12px; }
+  .layers-panel .lp-head button {
+    border: 1px solid var(--line); background: #fff; border-radius: 8px; font-size: 12px;
+    padding: 3px 8px; cursor: pointer; color: var(--accent); font-weight: 700;
+  }
+  .layers-panel .lp-head button:disabled { opacity: .4; cursor: default; color: var(--muted); }
+  .layer-row {
+    display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 4px;
+    padding: 6px 6px; border-radius: 9px; cursor: pointer; border: 1px solid transparent;
+  }
+  .layer-row.active { background: #eef4ff; border-color: #cfe0ff; }
+  .layer-row .layer-ctl { border: none; background: transparent; cursor: pointer; font-size: 14px; padding: 2px; border-radius: 6px; }
+  .layer-row .layer-ctl:disabled { opacity: .5; cursor: default; }
+  .layer-row .layer-name { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .layer-row .layer-sub { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; padding: 2px 2px 0; }
+  .layer-row .op { flex: 1; }
+  .layer-row .op-val { font-size: 10px; color: var(--muted); min-width: 30px; text-align: right; }
+  .layer-row .rowbtns { display: inline-flex; gap: 1px; }
 
   /* ── 할일 리스트 ───────────────────────────── */
   .todo-body { overflow-y: auto; padding: 6px 8px 10px; -webkit-overflow-scrolling: touch; }
@@ -155,26 +180,14 @@
     content: ""; position: absolute; left: 5px; top: 1px;
     width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
   }
-  .todo-item .txt {
-    flex: 1 1 auto; font-size: 14px; border: none; background: transparent;
-    outline: none; color: var(--ink); padding: 2px 0;
-    -webkit-user-select: text; user-select: text;
-  }
+  .todo-item .txt { flex: 1 1 auto; font-size: 14px; border: none; background: transparent; outline: none; color: var(--ink); padding: 2px 0; -webkit-user-select: text; user-select: text; }
   .todo-item.done .txt { text-decoration: line-through; color: var(--muted); }
   .todo-item .del { opacity: 0; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 2px 6px; }
   .todo-item:hover .del { opacity: 1; }
   .add-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px 4px; }
-  .add-row input {
-    flex: 1 1 auto; border: 1px dashed var(--line); background: #fbfcfe;
-    border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none;
-    -webkit-user-select: text; user-select: text;
-  }
+  .add-row input { flex: 1 1 auto; border: 1px dashed var(--line); background: #fbfcfe; border-radius: 10px; padding: 8px 10px; font-size: 13px; outline: none; -webkit-user-select: text; user-select: text; }
   .add-row input:focus { border-color: var(--accent); border-style: solid; }
-  .add-btn {
-    flex: 0 0 auto; width: 32px; height: 32px; border: none; border-radius: 9px;
-    background: var(--accent); color: #fff; font-size: 17px; line-height: 1;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-  }
+  .add-btn { flex: 0 0 auto; width: 32px; height: 32px; border: none; border-radius: 9px; background: var(--accent); color: #fff; font-size: 17px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .add-btn:active { transform: scale(0.93); }
 
   /* ── 열람 전용 모드 ────────────────────────── */
@@ -183,6 +196,10 @@
   body.readonly [data-clear],
   body.readonly #penBtn,
   body.readonly #eraserBtn,
+  body.readonly #imgBtn,
+  body.readonly #selBtn,
+  body.readonly #pageAdd,
+  body.readonly #pageDel,
   body.readonly .swatch { display: none; }
   body.readonly .todo-item input[type="checkbox"] { cursor: default; }
 
@@ -190,7 +207,6 @@
     .bottom-row { grid-template-columns: 1fr; min-height: 0; }
     main { overflow-y: auto; }
     .bottom-row .panel { min-height: 200px; }
-    header { flex-wrap: wrap; }
   }
 </style>
 </head>
@@ -225,10 +241,7 @@
       <span class="swatch" data-color="#3b82f6" style="background:#3b82f6"></span>
       <span class="swatch" data-color="#ef4444" style="background:#ef4444"></span>
       <span class="swatch" data-color="#22a06b" style="background:#22a06b"></span>
-      <span class="user-chip">
-        <span id="userName"></span>
-        <span class="role-badge" id="roleBadge"></span>
-      </span>
+      <span class="user-chip"><span id="userName"></span><span class="role-badge" id="roleBadge"></span></span>
       <button class="tool-btn" id="logoutBtn">로그아웃</button>
     </div>
   </header>
@@ -238,12 +251,31 @@
     <section class="panel sketch-panel">
       <div class="panel-head">
         <h2>✍️ 스케치 <span class="en">SKETCH</span></h2>
-        <span class="sub">애플펜슬 · 태블릿 펜으로 자유롭게</span>
+        <div class="page-nav">
+          <button id="pagePrev" title="이전 페이지">◀</button>
+          <span class="page-info" id="pageInfo">1 / 1</span>
+          <button id="pageNext" title="다음 페이지">▶</button>
+          <button id="pageAdd" title="새 페이지(다음 날짜)">＋ 페이지</button>
+          <button id="pageDel" title="이 페이지 삭제">🗑</button>
+        </div>
         <span class="spacer"></span>
-        <button class="mini-btn" data-clear="sketch">전체 지우기</button>
+        <button class="tool-btn" id="imgBtn" title="이미지 삽입">🖼 이미지</button>
+        <button class="tool-btn" id="selBtn" title="이미지 이동/크기">↔ 선택</button>
+        <button class="tool-btn" id="layersToggle" title="레이어">▤ 레이어</button>
+        <button class="mini-btn" data-clear="sketch">레이어 지우기</button>
       </div>
-      <div class="panel-body dotgrid">
-        <canvas class="draw-layer" id="sketchCanvas"></canvas>
+      <div class="panel-body dotgrid" id="sketchBody">
+        <div class="sketch-stack" id="sketchStack"></div>
+        <canvas class="overlay" id="sketchOverlay"></canvas>
+        <div class="date-badge" id="dateBadge"></div>
+        <div class="layers-panel" id="layersPanel">
+          <div class="lp-head">
+            <strong>레이어 (최대 5)</strong>
+            <button id="layerAdd">＋ 추가</button>
+          </div>
+          <div id="layersList"></div>
+        </div>
+        <input type="file" id="imgInput" accept="image/*" hidden>
       </div>
     </section>
 
@@ -252,6 +284,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>☀️ 오늘 할일 <span class="en">TODAY</span></h2>
+          <span class="weather-chip" id="todayWeather"></span>
           <span class="spacer"></span>
           <span class="sub" id="todayCount"></span>
         </div>
@@ -265,6 +298,7 @@
       <section class="panel">
         <div class="panel-head">
           <h2>🌙 내일 할일 <span class="en">TOMORROW</span></h2>
+          <span class="weather-chip" id="tomorrowWeather"></span>
           <span class="spacer"></span>
           <span class="sub" id="tomorrowCount"></span>
         </div>
@@ -296,361 +330,560 @@
   /* ── Supabase ─────────────────────────────── */
   const SUPABASE_URL = 'https://bhonlfpeegttscxggdqt.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_R1xceGZF0OAEidURmum9LQ_0IR6uASX';
-  const EMAIL_DOMAIN = '@sketchmemo.app';   // 아이디 뒤에 자동으로 붙는 도메인
+  const EMAIL_DOMAIN = '@sketchmemo.app';
   const BOARD_ID = 'main';
+  const WEATHER = { lat: 37.5665, lon: 126.9780, name: '서울' };   // 고정 도시
+  const MAX_LAYERS = 5;
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const $ = (id) => document.getElementById(id);
 
   /* ── 상태 ─────────────────────────────────── */
   const state = {
-    tool: "pen",
+    tool: "pen",          // pen | eraser | select
     color: "#2b3440",
     penSize: 2.2,
     eraserSize: 22,
-    penUsedEver: false,   // 팜리젝션용
-    canWrite: false,      // admin / editor 만 true
+    penUsedEver: false,
+    canWrite: false,
     username: "",
     role: "",
-    drawing: false,       // 필기 중에는 원격 갱신을 미룸
+    drawing: false,
+    editing: false,       // 이미지 이동/크기 조절 중
     pendingRemote: null,
   };
 
-  const $ = (id) => document.getElementById(id);
+  /* ── 날짜 유틸 ─────────────────────────────── */
+  const DOW_EN = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+  function ymd(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+  function isoToday(){ return ymd(new Date()); }
+  function addDaysISO(iso, n){ const [y,m,d]=iso.split("-").map(Number); const dt=new Date(y,m-1,d); dt.setDate(dt.getDate()+n); return ymd(dt); }
+  function fmtDate(iso){ const [y,m,d]=iso.split("-").map(Number); const dt=new Date(y,m-1,d);
+    return y+"."+String(m).padStart(2,"0")+"."+String(d).padStart(2,"0")+"."+DOW_EN[dt.getDay()]; }
 
-  /* ── 스케치 캔버스 ─────────────────────────── */
-  function createBoard(canvas) {
-    const ctx = canvas.getContext("2d");
-    let dpr = 1;
-    let strokes = [];              // {color,size,erase,pts:[{x,y,p}]}
-    let cur = null;
+  /* =====================================================================
+     스케치: 페이지 + 레이어 + 이미지
+     ===================================================================== */
+  const stack   = $("sketchStack");
+  const overlay = $("sketchOverlay");
+  const octx    = overlay.getContext("2d");
 
-    function resize() {
-      dpr = window.devicePixelRatio || 1;
-      const r = canvas.getBoundingClientRect();
-      canvas.width = Math.round(r.width * dpr);
-      canvas.height = Math.round(r.height * dpr);
-      redraw();
-    }
+  let curPage = 0;
+  let activeLayer = 0;
+  let selected = null;          // 활성 레이어의 이미지 index (선택됨)
+  let selMode = null;           // 'move' | 'resize'
+  let selStart = null;          // {pt, img:{x,y,w,h}}
+  let cur = null;               // 그리는 중인 stroke
+  let dpr = 1;
+  let layerCanvases = [];       // {canvas, ctx}
+  const imgCache = new Map();   // src -> HTMLImageElement
 
-    function drawStroke(s) {
-      if (!s.pts || s.pts.length === 0) return;
-      ctx.globalCompositeOperation = s.erase ? "destination-out" : "source-over";
-      ctx.strokeStyle = s.color;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      if (s.pts.length === 1) {
-        const p = s.pts[0];
-        ctx.fillStyle = s.color;
-        ctx.beginPath();
-        ctx.arc(p.x * dpr, p.y * dpr, (s.size * (0.6 + p.p)) * dpr / 2, 0, Math.PI * 2);
-        ctx.fill();
-        return;
-      }
-      for (let i = 1; i < s.pts.length; i++) {
-        const a = s.pts[i - 1], b = s.pts[i];
-        ctx.lineWidth = s.size * (0.6 + b.p) * dpr;
-        ctx.beginPath();
-        ctx.moveTo(a.x * dpr, a.y * dpr);
-        ctx.lineTo(b.x * dpr, b.y * dpr);
-        ctx.stroke();
-      }
-    }
+  let layerSeq = 0;
+  function makeLayer(strokes){ layerSeq++; return { id:"L"+layerSeq+"_"+Date.now().toString(36), name:"레이어 "+layerSeq, visible:true, opacity:1, strokes: strokes||[], images: [] }; }
+  function makePage(date, layers){ return { date: date||isoToday(), layers: layers || [makeLayer([])] }; }
+  function freshDoc(){ layerSeq = 0; return { version:2, pages:[ makePage(isoToday()) ] }; }
 
-    function redraw() {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      strokes.forEach(drawStroke);
-    }
+  let doc = freshDoc();
 
-    function pointFrom(e) {
-      const r = canvas.getBoundingClientRect();
-      return {
-        x: +(e.clientX - r.left).toFixed(1),
-        y: +(e.clientY - r.top).toFixed(1),
-        p: e.pressure && e.pressure > 0 ? +e.pressure.toFixed(2) : 0.5,
-      };
-    }
+  function page(){ return doc.pages[curPage]; }
+  function layers(){ return page().layers; }
 
-    function allowInput(e) {
-      if (!state.canWrite) return false;                       // 열람자는 필기 불가
-      if (e.pointerType === "pen") { state.penUsedEver = true; return true; }
-      if (e.pointerType === "mouse") return true;
-      return !state.penUsedEver;                               // 팜리젝션
-    }
-
-    canvas.addEventListener("pointerdown", (e) => {
-      if (!allowInput(e)) return;
-      e.preventDefault();
-      canvas.setPointerCapture(e.pointerId);
-      state.drawing = true;
-      const erase = state.tool === "eraser";
-      cur = {
-        color: erase ? "rgba(0,0,0,1)" : state.color,
-        size: erase ? state.eraserSize : state.penSize,
-        erase,
-        pts: [pointFrom(e)],
-      };
-      strokes.push(cur);
-      drawStroke(cur);
-    });
-
-    canvas.addEventListener("pointermove", (e) => {
-      if (!cur) return;
-      e.preventDefault();
-      const evts = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];  // 펜 고빈도 좌표
-      for (const ev of evts) cur.pts.push(pointFrom(ev));
-      redraw();
-    });
-
-    function finish() {
-      if (!cur) return;
-      cur = null;
-      state.drawing = false;
-      scheduleSave();
-      applyPendingRemote();
-    }
-    canvas.addEventListener("pointerup", finish);
-    canvas.addEventListener("pointercancel", finish);
-    canvas.addEventListener("pointerleave", finish);
-
-    new ResizeObserver(resize).observe(canvas);
-    resize();
-
-    return {
-      get strokes() { return strokes; },
-      setStrokes(arr) { strokes = Array.isArray(arr) ? arr : []; redraw(); },
-      clear() { strokes = []; redraw(); scheduleSave(); },
-    };
+  function getImg(src){
+    let im = imgCache.get(src);
+    if (!im){ im = new Image(); im.onload = () => renderAll(); im.src = src; imgCache.set(src, im); }
+    return im;
   }
 
-  const sketch = createBoard($("sketchCanvas"));
+  function drawStroke(ctx, s){
+    if (!s.pts || s.pts.length === 0) return;
+    ctx.globalCompositeOperation = s.erase ? "destination-out" : "source-over";
+    ctx.strokeStyle = s.color; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    if (s.pts.length === 1){
+      const p = s.pts[0];
+      ctx.globalCompositeOperation = s.erase ? "destination-out" : "source-over";
+      ctx.fillStyle = s.color; ctx.beginPath();
+      ctx.arc(p.x*dpr, p.y*dpr, (s.size*(0.6+p.p))*dpr/2, 0, Math.PI*2); ctx.fill(); return;
+    }
+    for (let i=1; i<s.pts.length; i++){
+      const a=s.pts[i-1], b=s.pts[i];
+      ctx.lineWidth = s.size*(0.6+b.p)*dpr;
+      ctx.beginPath(); ctx.moveTo(a.x*dpr, a.y*dpr); ctx.lineTo(b.x*dpr, b.y*dpr); ctx.stroke();
+    }
+  }
+
+  function buildCanvases(){
+    layerCanvases.forEach(o => o.canvas.remove());
+    layerCanvases = [];
+    layers().forEach((L, i) => {
+      const c = document.createElement("canvas");
+      c.className = "layer-canvas"; c.style.zIndex = i;
+      stack.appendChild(c);
+      layerCanvases.push({ canvas: c, ctx: c.getContext("2d") });
+    });
+    resizeCanvases();
+    renderAll();
+    renderLayersPanel();
+    updateDateBadge();
+    updatePageNav();
+  }
+
+  function resizeCanvases(){
+    dpr = window.devicePixelRatio || 1;
+    const r = stack.getBoundingClientRect();
+    const w = Math.round(r.width*dpr), h = Math.round(r.height*dpr);
+    layerCanvases.forEach(o => { o.canvas.width = w; o.canvas.height = h; });
+    overlay.width = w; overlay.height = h;
+  }
+
+  function renderLayer(i){
+    const o = layerCanvases[i]; if (!o) return;
+    const L = layers()[i];
+    o.canvas.style.display = L.visible ? "block" : "none";
+    o.canvas.style.opacity = L.opacity;
+    const ctx = o.ctx;
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.clearRect(0,0,o.canvas.width,o.canvas.height);
+    (L.images||[]).forEach(im => {
+      const el = getImg(im.src);
+      if (el.complete && el.naturalWidth) ctx.drawImage(el, im.x*dpr, im.y*dpr, im.w*dpr, im.h*dpr);
+    });
+    (L.strokes||[]).forEach(s => drawStroke(ctx, s));
+  }
+
+  function renderAll(){
+    layers().forEach((L,i) => renderLayer(i));
+    renderOverlay();
+  }
+
+  function renderOverlay(){
+    octx.setTransform(1,0,0,1,0,0);
+    octx.clearRect(0,0,overlay.width,overlay.height);
+    if (state.tool !== "select" || selected == null) return;
+    const im = (layers()[activeLayer].images||[])[selected]; if (!im) return;
+    const x=im.x*dpr, y=im.y*dpr, w=im.w*dpr, h=im.h*dpr, hs=11*dpr;
+    octx.strokeStyle = "#3b82f6"; octx.lineWidth = 1.5*dpr;
+    octx.setLineDash([6*dpr,4*dpr]); octx.strokeRect(x,y,w,h); octx.setLineDash([]);
+    // 크기조절 핸들 (우하단)
+    octx.fillStyle = "#3b82f6"; octx.fillRect(x+w-hs, y+h-hs, hs, hs);
+    // 삭제 핸들 (우상단)
+    octx.fillStyle = "#ef4444"; octx.beginPath(); octx.arc(x+w, y, hs, 0, Math.PI*2); octx.fill();
+    octx.strokeStyle = "#fff"; octx.lineWidth = 1.6*dpr;
+    octx.beginPath(); octx.moveTo(x+w-hs*0.4, y-hs*0.4); octx.lineTo(x+w+hs*0.4, y+hs*0.4);
+    octx.moveTo(x+w+hs*0.4, y-hs*0.4); octx.lineTo(x+w-hs*0.4, y+hs*0.4); octx.stroke();
+  }
+
+  function updateDateBadge(){ $("dateBadge").textContent = fmtDate(page().date); }
+  function updatePageNav(){
+    $("pageInfo").textContent = (curPage+1)+" / "+doc.pages.length;
+    $("pagePrev").disabled = curPage <= 0;
+    $("pageNext").disabled = curPage >= doc.pages.length-1;
+    $("pageDel").disabled = !state.canWrite || doc.pages.length <= 1;
+    $("pageAdd").disabled = !state.canWrite;
+  }
+
+  /* ── 좌표 ─────────────────────────────────── */
+  function pointFrom(e){
+    const r = stack.getBoundingClientRect();
+    return { x:+(e.clientX-r.left).toFixed(1), y:+(e.clientY-r.top).toFixed(1),
+             p: e.pressure && e.pressure>0 ? +e.pressure.toFixed(2) : 0.5 };
+  }
+  function rawPoint(e){ const r = stack.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; }
+  function inImage(p, im){ return p.x>=im.x && p.x<=im.x+im.w && p.y>=im.y && p.y<=im.y+im.h; }
+  function inResize(p, im){ const s=14; return Math.abs(p.x-(im.x+im.w))<=s && Math.abs(p.y-(im.y+im.h))<=s; }
+  function inDelete(p, im){ const s=14; return Math.abs(p.x-(im.x+im.w))<=s && Math.abs(p.y-im.y)<=s; }
+
+  function allowPen(e){
+    if (e.pointerType === "pen"){ state.penUsedEver = true; return true; }
+    if (e.pointerType === "mouse") return true;
+    return !state.penUsedEver;    // 팜리젝션
+  }
+  function capture(el, id){ try { el.setPointerCapture(id); } catch(e) {} }
+
+  /* ── 포인터 (그리기 / 이미지 조작) ─────────── */
+  stack.addEventListener("pointerdown", (e) => {
+    if (!state.canWrite) return;
+
+    if (state.tool === "select"){
+      const p = rawPoint(e);
+      const imgs = layers()[activeLayer].images || [];
+      // 선택된 이미지의 핸들 우선
+      if (selected != null && imgs[selected]){
+        const im = imgs[selected];
+        if (inDelete(p, im)){ imgs.splice(selected,1); selected=null; e.preventDefault(); renderLayer(activeLayer); renderOverlay(); scheduleSave(); return; }
+        if (inResize(p, im)){ selMode="resize"; selStart={pt:p, img:{...im}}; state.editing=true; capture(stack, e.pointerId); e.preventDefault(); return; }
+      }
+      // 위에서부터 히트테스트
+      let hit=null;
+      for (let i=imgs.length-1;i>=0;i--){ if (inImage(p, imgs[i])){ hit=i; break; } }
+      selected = hit;
+      if (hit != null){ selMode="move"; selStart={pt:p, img:{...imgs[hit]}}; state.editing=true; capture(stack, e.pointerId); }
+      e.preventDefault(); renderOverlay(); return;
+    }
+
+    if (state.tool !== "pen" && state.tool !== "eraser") return;
+    if (!allowPen(e)) return;
+    const L = layers()[activeLayer];
+    if (!L.visible) return;                         // 숨긴 레이어엔 안 그림
+    e.preventDefault(); capture(stack, e.pointerId);
+    state.drawing = true;
+    const erase = state.tool === "eraser";
+    cur = { color: erase ? "rgba(0,0,0,1)" : state.color, size: erase ? state.eraserSize : state.penSize, erase, pts:[pointFrom(e)] };
+    L.strokes.push(cur);
+    renderLayer(activeLayer);
+  });
+
+  stack.addEventListener("pointermove", (e) => {
+    if (state.editing && selStart){
+      const p = rawPoint(e); const im = layers()[activeLayer].images[selected]; if (!im) return;
+      e.preventDefault();
+      if (selMode === "move"){ im.x = selStart.img.x + (p.x-selStart.pt.x); im.y = selStart.img.y + (p.y-selStart.pt.y); }
+      else { // resize, 비율 유지
+        const ratio = selStart.img.h / selStart.img.w;
+        let nw = Math.max(24, selStart.img.w + (p.x-selStart.pt.x));
+        im.w = nw; im.h = nw*ratio;
+      }
+      renderLayer(activeLayer); renderOverlay(); return;
+    }
+    if (!cur) return;
+    e.preventDefault();
+    const evts = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of evts) cur.pts.push(pointFrom(ev));
+    renderLayer(activeLayer);
+  });
+
+  function endPointer(){
+    if (state.editing){ state.editing=false; selMode=null; selStart=null; scheduleSave(); applyPendingRemote(); return; }
+    if (cur){ cur=null; state.drawing=false; scheduleSave(); applyPendingRemote(); }
+  }
+  stack.addEventListener("pointerup", endPointer);
+  stack.addEventListener("pointercancel", endPointer);
+  stack.addEventListener("pointerleave", endPointer);
+
+  new ResizeObserver(() => { resizeCanvases(); renderAll(); }).observe(stack);
+
+  /* ── 이미지 삽입 ───────────────────────────── */
+  $("imgBtn").addEventListener("click", () => { if (state.canWrite) $("imgInput").click(); });
+  $("imgInput").addEventListener("change", async (e) => {
+    const file = e.target.files && e.target.files[0]; e.target.value = "";
+    if (!file || !state.canWrite) return;
+    const src = await compressImage(file);
+    const dims = await imgDims(src);
+    const r = stack.getBoundingClientRect();
+    const availW = r.width  > 1 ? r.width  : 800;   // 레이아웃이 아직 안 잡혔을 때 대비
+    const availH = r.height > 1 ? r.height : 600;
+    let w = Math.min(dims.w, availW*0.5), h = w*(dims.h/dims.w);
+    if (h > availH*0.6){ h = availH*0.6; w = h*(dims.w/dims.h); }
+    const im = { src, x:(availW-w)/2, y:(availH-h)/2, w, h };
+    layers()[activeLayer].images.push(im);
+    selected = layers()[activeLayer].images.length - 1;
+    setTool("select");
+    getImg(src);
+    renderLayer(activeLayer); renderOverlay(); scheduleSave();
+  });
+
+  function imgDims(src){ return new Promise(res => { const i=new Image(); i.onload=()=>res({w:i.naturalWidth,h:i.naturalHeight}); i.src=src; }); }
+  function compressImage(file){
+    return new Promise(res => {
+      const rd = new FileReader();
+      rd.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const max = 1400; let w=img.naturalWidth, h=img.naturalHeight;
+          if (w > max || h > max){ const s = max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+          const c = document.createElement("canvas"); c.width=w; c.height=h;
+          const cx = c.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,w,h); cx.drawImage(img,0,0,w,h);
+          res(c.toDataURL("image/jpeg", 0.82));
+        };
+        img.src = rd.result;
+      };
+      rd.readAsDataURL(file);
+    });
+  }
+
+  /* ── 페이지 네비 ───────────────────────────── */
+  $("pagePrev").addEventListener("click", () => { if (curPage>0){ curPage--; selected=null; activeLayer=Math.min(activeLayer, layers().length-1); buildCanvases(); } });
+  $("pageNext").addEventListener("click", () => { if (curPage<doc.pages.length-1){ curPage++; selected=null; activeLayer=Math.min(activeLayer, layers().length-1); buildCanvases(); } });
+  $("pageAdd").addEventListener("click", () => {
+    if (!state.canWrite) return;
+    const lastDate = doc.pages[doc.pages.length-1].date;
+    doc.pages.push(makePage(addDaysISO(lastDate, 1)));
+    curPage = doc.pages.length-1; activeLayer=0; selected=null;
+    buildCanvases(); scheduleSave();
+  });
+  $("pageDel").addEventListener("click", () => {
+    if (!state.canWrite || doc.pages.length<=1) return;
+    if (!confirm("이 페이지를 삭제할까요?")) return;
+    doc.pages.splice(curPage,1);
+    if (curPage >= doc.pages.length) curPage = doc.pages.length-1;
+    activeLayer=0; selected=null; buildCanvases(); scheduleSave();
+  });
+
+  /* ── 레이어 패널 ───────────────────────────── */
+  $("layersToggle").addEventListener("click", () => $("layersPanel").classList.toggle("open"));
+  $("layerAdd").addEventListener("click", () => {
+    if (!state.canWrite || layers().length>=MAX_LAYERS) return;
+    layers().push(makeLayer([]));
+    activeLayer = layers().length-1; selected=null;
+    buildCanvases(); scheduleSave();
+  });
+
+  function renderLayersPanel(){
+    const list = $("layersList"); list.innerHTML = "";
+    const Ls = layers();
+    for (let i=Ls.length-1; i>=0; i--){
+      const L = Ls[i];
+      const row = document.createElement("div");
+      row.className = "layer-row" + (i===activeLayer ? " active" : "");
+      row.addEventListener("click", (e) => { if (e.target.closest(".layer-ctl")||e.target.closest("input")) return; activeLayer=i; selected=null; renderLayersPanel(); renderOverlay(); });
+
+      const eye = document.createElement("button");
+      eye.className = "layer-ctl"; eye.textContent = L.visible ? "👁️" : "🚫"; eye.disabled = !state.canWrite;
+      eye.title = "표시/숨김";
+      eye.addEventListener("click", () => { L.visible=!L.visible; renderLayer(i); renderLayersPanel(); scheduleSave(); });
+
+      const name = document.createElement("span"); name.className="layer-name"; name.textContent = L.name;
+
+      const rowbtns = document.createElement("span"); rowbtns.className="rowbtns";
+      const up = document.createElement("button"); up.className="layer-ctl"; up.textContent="🔼"; up.title="위로"; up.disabled=!state.canWrite||i>=Ls.length-1;
+      up.addEventListener("click", () => { swapLayer(i,i+1); });
+      const down = document.createElement("button"); down.className="layer-ctl"; down.textContent="🔽"; down.title="아래로"; down.disabled=!state.canWrite||i<=0;
+      down.addEventListener("click", () => { swapLayer(i,i-1); });
+      const del = document.createElement("button"); del.className="layer-ctl"; del.textContent="🗑️"; del.title="레이어 삭제"; del.disabled=!state.canWrite||Ls.length<=1;
+      del.addEventListener("click", () => {
+        if (Ls.length<=1) return;
+        if (!confirm("레이어를 삭제할까요?")) return;
+        Ls.splice(i,1); activeLayer=Math.max(0, Math.min(activeLayer, Ls.length-1)); selected=null; buildCanvases(); scheduleSave();
+      });
+      rowbtns.append(up, down, del);
+
+      const sub = document.createElement("div"); sub.className="layer-sub";
+      const op = document.createElement("input"); op.type="range"; op.min=0; op.max=100; op.value=Math.round(L.opacity*100); op.className="op"; op.disabled=!state.canWrite;
+      const opv = document.createElement("span"); opv.className="op-val"; opv.textContent = Math.round(L.opacity*100)+"%";
+      op.addEventListener("input", () => { L.opacity=op.value/100; opv.textContent=op.value+"%"; renderLayer(i); });
+      op.addEventListener("change", () => scheduleSave());
+      sub.append(document.createTextNode("투명도"), op, opv);
+
+      row.append(eye, name, rowbtns, sub);
+      list.appendChild(row);
+    }
+    $("layerAdd").disabled = !state.canWrite || Ls.length>=MAX_LAYERS;
+  }
+
+  function swapLayer(i, j){
+    const Ls = layers(); if (j<0||j>=Ls.length) return;
+    const t = Ls[i]; Ls[i]=Ls[j]; Ls[j]=t;
+    if (activeLayer===i) activeLayer=j; else if (activeLayer===j) activeLayer=i;
+    selected=null; buildCanvases(); scheduleSave();
+  }
+
+  /* =====================================================================
+     백버너: 단일 캔버스 (기존 그대로)
+     ===================================================================== */
+  function createBoard(canvas){
+    const ctx = canvas.getContext("2d");
+    let bdpr=1, strokes=[], bcur=null;
+    function resize(){ bdpr=window.devicePixelRatio||1; const r=canvas.getBoundingClientRect(); canvas.width=Math.round(r.width*bdpr); canvas.height=Math.round(r.height*bdpr); redraw(); }
+    function ds(s){ if(!s.pts||!s.pts.length)return; ctx.globalCompositeOperation=s.erase?"destination-out":"source-over"; ctx.strokeStyle=s.color; ctx.lineCap="round"; ctx.lineJoin="round";
+      if(s.pts.length===1){ const p=s.pts[0]; ctx.fillStyle=s.color; ctx.beginPath(); ctx.arc(p.x*bdpr,p.y*bdpr,(s.size*(0.6+p.p))*bdpr/2,0,Math.PI*2); ctx.fill(); return; }
+      for(let i=1;i<s.pts.length;i++){ const a=s.pts[i-1],b=s.pts[i]; ctx.lineWidth=s.size*(0.6+b.p)*bdpr; ctx.beginPath(); ctx.moveTo(a.x*bdpr,a.y*bdpr); ctx.lineTo(b.x*bdpr,b.y*bdpr); ctx.stroke(); } }
+    function redraw(){ ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,canvas.width,canvas.height); strokes.forEach(ds); }
+    function pf(e){ const r=canvas.getBoundingClientRect(); return {x:+(e.clientX-r.left).toFixed(1), y:+(e.clientY-r.top).toFixed(1), p:e.pressure&&e.pressure>0?+e.pressure.toFixed(2):0.5}; }
+    function allow(e){ if(!state.canWrite)return false; if(state.tool!=="pen"&&state.tool!=="eraser")return false; if(e.pointerType==="pen"){state.penUsedEver=true;return true;} if(e.pointerType==="mouse")return true; return !state.penUsedEver; }
+    canvas.addEventListener("pointerdown",(e)=>{ if(!allow(e))return; e.preventDefault(); capture(canvas, e.pointerId); state.drawing=true; const erase=state.tool==="eraser"; bcur={color:erase?"rgba(0,0,0,1)":state.color,size:erase?state.eraserSize:state.penSize,erase,pts:[pf(e)]}; strokes.push(bcur); ds(bcur); });
+    canvas.addEventListener("pointermove",(e)=>{ if(!bcur)return; e.preventDefault(); const ev=e.getCoalescedEvents?e.getCoalescedEvents():[e]; for(const x of ev)bcur.pts.push(pf(x)); redraw(); });
+    function fin(){ if(!bcur)return; bcur=null; state.drawing=false; scheduleSave(); applyPendingRemote(); }
+    canvas.addEventListener("pointerup",fin); canvas.addEventListener("pointercancel",fin); canvas.addEventListener("pointerleave",fin);
+    new ResizeObserver(resize).observe(canvas); resize();
+    return { get strokes(){return strokes;}, setStrokes(a){ strokes=Array.isArray(a)?a:[]; redraw(); }, clear(){ strokes=[]; redraw(); scheduleSave(); } };
+  }
   const burner = createBoard($("burnerCanvas"));
 
   /* ── 할일 리스트 ───────────────────────────── */
-  function makeList(listEl, formEl, inputEl, countEl) {
+  function makeList(listEl, formEl, inputEl, countEl){
     let tasks = [];
-
-    function render() {
+    function render(){
       listEl.innerHTML = "";
       tasks.forEach((task, idx) => {
-        const row = document.createElement("div");
-        row.className = "todo-item" + (task.done ? " done" : "");
-
-        const cb = document.createElement("input");
-        cb.type = "checkbox";
-        cb.checked = !!task.done;
-        cb.disabled = !state.canWrite;
-        cb.addEventListener("change", () => { task.done = cb.checked; render(); scheduleSave(); });
-
-        const txt = document.createElement("input");
-        txt.type = "text";
-        txt.className = "txt";
-        txt.value = task.text;
-        txt.readOnly = !state.canWrite;
-        txt.addEventListener("input", () => { task.text = txt.value; scheduleSave(); });
-
-        const del = document.createElement("button");
-        del.className = "del";
-        del.textContent = "✕";
-        del.addEventListener("click", () => { tasks.splice(idx, 1); render(); scheduleSave(); });
-
-        row.append(cb, txt, del);
-        listEl.appendChild(row);
+        const row = document.createElement("div"); row.className = "todo-item"+(task.done?" done":"");
+        const cb = document.createElement("input"); cb.type="checkbox"; cb.checked=!!task.done; cb.disabled=!state.canWrite;
+        cb.addEventListener("change", () => { task.done=cb.checked; render(); scheduleSave(); });
+        const txt = document.createElement("input"); txt.type="text"; txt.className="txt"; txt.value=task.text; txt.readOnly=!state.canWrite;
+        txt.addEventListener("input", () => { task.text=txt.value; scheduleSave(); });
+        const del = document.createElement("button"); del.className="del"; del.textContent="✕";
+        del.addEventListener("click", () => { tasks.splice(idx,1); render(); scheduleSave(); });
+        row.append(cb, txt, del); listEl.appendChild(row);
       });
-      const remaining = tasks.filter((t) => !t.done).length;
-      countEl.textContent = tasks.length ? `${remaining} / ${tasks.length}` : "";
+      const remaining = tasks.filter(t=>!t.done).length;
+      countEl.textContent = tasks.length ? remaining+" / "+tasks.length : "";
     }
-
-    // 한글 IME 조합 중에는 keydown 의 Enter 가 잡히지 않고, 태블릿 가상 키보드도
-    // 동작이 제각각이라 form submit(+ 추가 버튼)으로 처리한다.
     formEl.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const v = inputEl.value.trim();
-      if (!v || !state.canWrite) return;
-      tasks.push({ text: v, done: false });
-      inputEl.value = "";
-      render();
-      scheduleSave();
-      inputEl.focus();
+      e.preventDefault(); const v=inputEl.value.trim(); if(!v||!state.canWrite)return;
+      tasks.push({text:v, done:false}); inputEl.value=""; render(); scheduleSave(); inputEl.focus();
     });
-
-    return {
-      get tasks() { return tasks; },
-      setTasks(arr) { tasks = Array.isArray(arr) ? arr : []; render(); },
-      render,
-    };
+    return { get tasks(){return tasks;}, setTasks(a){ tasks=Array.isArray(a)?a:[]; render(); }, render };
   }
-
   const todayList = makeList($("todayList"), $("todayAdd"), $("todayInput"), $("todayCount"));
   const tomorrowList = makeList($("tomorrowList"), $("tomorrowAdd"), $("tomorrowInput"), $("tomorrowCount"));
 
   /* ── 저장 / 불러오기 ───────────────────────── */
   const syncEl = $("syncState");
-  let saveTimer = null;
-  let lastSavedAt = 0;
-
-  function setSync(msg) { syncEl.textContent = msg; }
-
-  function scheduleSave() {
-    if (!state.canWrite) return;
-    setSync("저장 중…");
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveNow, 700);
-  }
-
-  async function saveNow() {
-    if (!state.canWrite) return;
-    const payload = {
-      sketch: sketch.strokes,
-      burner: burner.strokes,
-      today: todayList.tasks,
-      tomorrow: tomorrowList.tasks,
-      updated_at: new Date().toISOString(),
-      updated_by: state.username,
-    };
+  let saveTimer=null, lastSavedAt=0;
+  function setSync(m){ syncEl.textContent=m; }
+  function scheduleSave(){ if(!state.canWrite)return; setSync("저장 중…"); clearTimeout(saveTimer); saveTimer=setTimeout(saveNow,700); }
+  async function saveNow(){
+    if(!state.canWrite)return;
+    const payload = { sketch:doc, burner:burner.strokes, today:todayList.tasks, tomorrow:tomorrowList.tasks, updated_at:new Date().toISOString(), updated_by:state.username };
     const { error } = await sb.from("boards").update(payload).eq("id", BOARD_ID);
-    if (error) { setSync("저장 실패"); console.error(error); return; }
-    lastSavedAt = Date.now();
-    setSync("저장됨");
-    setTimeout(() => { if (Date.now() - lastSavedAt > 1500) setSync(""); }, 2000);
+    if(error){ setSync("저장 실패"); console.error(error); return; }
+    lastSavedAt=Date.now(); setSync("저장됨"); setTimeout(()=>{ if(Date.now()-lastSavedAt>1500) setSync(""); }, 2000);
   }
 
-  function applyBoard(row) {
-    if (!row) return;
-    sketch.setStrokes(row.sketch);
+  function migrateSketch(raw){
+    if (Array.isArray(raw)){ const d=freshDoc(); d.pages[0].layers[0].strokes = raw; return d; }
+    if (raw && Array.isArray(raw.pages) && raw.pages.length){
+      // layerSeq 를 기존 이름과 겹치지 않게 밀어둠
+      layerSeq = Math.max(layerSeq, raw.pages.reduce((m,p)=>Math.max(m,(p.layers||[]).length),0));
+      raw.pages.forEach(p => { if(!p.date)p.date=isoToday(); if(!p.layers||!p.layers.length)p.layers=[makeLayer([])];
+        p.layers.forEach(L=>{ if(L.visible===undefined)L.visible=true; if(L.opacity===undefined)L.opacity=1; if(!L.strokes)L.strokes=[]; if(!L.images)L.images=[]; }); });
+      return raw;
+    }
+    return freshDoc();
+  }
+
+  function applyBoard(row){
+    if(!row) return;
+    doc = migrateSketch(row.sketch);
+    curPage = Math.min(curPage, doc.pages.length-1); if(curPage<0)curPage=0;
+    activeLayer = Math.min(activeLayer, layers().length-1); if(activeLayer<0)activeLayer=0;
+    selected = null;
+    buildCanvases();
     burner.setStrokes(row.burner);
     todayList.setTasks(row.today);
     tomorrowList.setTasks(row.tomorrow);
   }
 
-  // 할일 텍스트를 입력하는 중에 원격 갱신이 들어오면 타이핑이 날아가므로 보류한다.
-  function isEditingText() {
-    const el = document.activeElement;
-    return !!el && el.tagName === "INPUT" && el.type === "text";
-  }
-
-  function applyPendingRemote() {
-    if (state.pendingRemote && !state.drawing && !isEditingText()) {
-      applyBoard(state.pendingRemote);
-      state.pendingRemote = null;
-      setSync("갱신됨");
-      setTimeout(() => setSync(""), 1500);
+  function isEditingText(){ const el=document.activeElement; return !!el && el.tagName==="INPUT" && el.type==="text"; }
+  function applyPendingRemote(){
+    if(state.pendingRemote && !state.drawing && !state.editing && !isEditingText()){
+      applyBoard(state.pendingRemote); state.pendingRemote=null; setSync("갱신됨"); setTimeout(()=>setSync(""),1500);
     }
   }
+  document.addEventListener("focusout", () => setTimeout(applyPendingRemote, 150));
 
-  async function loadBoard() {
+  async function loadBoard(){
     setSync("불러오는 중…");
     const { data, error } = await sb.from("boards").select("*").eq("id", BOARD_ID).single();
-    if (error) { setSync("불러오기 실패"); console.error(error); return; }
-    applyBoard(data);
-    setSync("");
+    if(error){ setSync("불러오기 실패"); console.error(error); return; }
+    applyBoard(data); setSync("");
   }
 
-  function subscribeRealtime() {
-    sb.channel("board-sync")
-      .on("postgres_changes",
-        { event: "UPDATE", schema: "public", table: "boards", filter: `id=eq.${BOARD_ID}` },
-        (payload) => {
-          const row = payload.new;
-          // 내가 방금 저장한 내용의 메아리는 무시
-          if (row.updated_by === state.username && Date.now() - lastSavedAt < 3000) return;
-          // 필기 중이거나 할일을 입력하는 중이면 끊기지 않도록 잠시 보류
-          if (state.drawing || isEditingText()) { state.pendingRemote = row; return; }
-          applyBoard(row);
-          setSync("갱신됨");
-          setTimeout(() => setSync(""), 1500);
-        })
-      .subscribe();
+  function subscribeRealtime(){
+    sb.channel("board-sync").on("postgres_changes",
+      { event:"UPDATE", schema:"public", table:"boards", filter:"id=eq."+BOARD_ID },
+      (payload) => {
+        const row = payload.new;
+        if(row.updated_by===state.username && Date.now()-lastSavedAt<3000) return;
+        if(state.drawing || state.editing || isEditingText()){ state.pendingRemote=row; return; }
+        applyBoard(row); setSync("갱신됨"); setTimeout(()=>setSync(""),1500);
+      }).subscribe();
   }
-
-  // 입력이 끝나면 보류해 둔 원격 갱신을 반영
-  document.addEventListener("focusout", () => setTimeout(applyPendingRemote, 150));
 
   /* ── 툴바 ─────────────────────────────────── */
   $("penBtn").addEventListener("click", () => setTool("pen"));
   $("eraserBtn").addEventListener("click", () => setTool("eraser"));
-  function setTool(t) {
+  $("selBtn").addEventListener("click", () => setTool("select"));
+  function setTool(t){
     state.tool = t;
-    $("penBtn").classList.toggle("active", t === "pen");
-    $("eraserBtn").classList.toggle("active", t === "eraser");
+    $("penBtn").classList.toggle("active", t==="pen");
+    $("eraserBtn").classList.toggle("active", t==="eraser");
+    $("selBtn").classList.toggle("active", t==="select");
+    if(t!=="select"){ selected=null; renderOverlay(); }
   }
-  document.querySelectorAll(".swatch").forEach((sw) => {
+  document.querySelectorAll(".swatch").forEach(sw => {
     sw.addEventListener("click", () => {
-      state.color = sw.dataset.color;
-      setTool("pen");
-      document.querySelectorAll(".swatch").forEach((s) => s.classList.remove("active"));
-      sw.classList.add("active");
+      state.color=sw.dataset.color; setTool("pen");
+      document.querySelectorAll(".swatch").forEach(s=>s.classList.remove("active")); sw.classList.add("active");
     });
   });
-  document.querySelectorAll("[data-clear]").forEach((btn) => {
+  document.querySelectorAll("[data-clear]").forEach(btn => {
     btn.addEventListener("click", () => {
-      if (!state.canWrite) return;
-      if (!confirm("이 영역을 전체 지울까요?")) return;
-      (btn.dataset.clear === "sketch" ? sketch : burner).clear();
+      if(!state.canWrite) return;
+      if(btn.dataset.clear==="burner"){ if(confirm("BACK BURNER를 전체 지울까요?")) burner.clear(); return; }
+      // 스케치: 활성 레이어만 지움
+      if(confirm("현재 레이어를 지울까요?")){ const L=layers()[activeLayer]; L.strokes=[]; L.images=[]; selected=null; renderLayer(activeLayer); renderOverlay(); scheduleSave(); }
     });
   });
 
-  /* ── 날짜 ─────────────────────────────────── */
+  /* ── 날씨 (Open-Meteo, 서울 고정) ──────────── */
+  function wmo(code){
+    const m = {
+      0:["☀️","맑음"],1:["🌤️","대체로 맑음"],2:["⛅","구름 조금"],3:["☁️","흐림"],
+      45:["🌫️","안개"],48:["🌫️","안개"],
+      51:["🌦️","이슬비"],53:["🌦️","이슬비"],55:["🌦️","이슬비"],
+      56:["🌧️","어는 이슬비"],57:["🌧️","어는 이슬비"],
+      61:["🌧️","비"],63:["🌧️","비"],65:["🌧️","강한 비"],
+      66:["🌧️","어는 비"],67:["🌧️","어는 비"],
+      71:["🌨️","눈"],73:["🌨️","눈"],75:["🌨️","강한 눈"],77:["🌨️","싸락눈"],
+      80:["🌦️","소나기"],81:["🌦️","소나기"],82:["🌦️","강한 소나기"],
+      85:["🌨️","소나기 눈"],86:["🌨️","소나기 눈"],
+      95:["⛈️","뇌우"],96:["⛈️","우박 뇌우"],99:["⛈️","우박 뇌우"]
+    };
+    return m[code] || ["🌡️",""];
+  }
+  async function loadWeather(){
+    try {
+      const url = "https://api.open-meteo.com/v1/forecast?latitude="+WEATHER.lat+"&longitude="+WEATHER.lon+
+        "&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia%2FSeoul&forecast_days=2";
+      const r = await fetch(url); if(!r.ok) throw new Error("weather http "+r.status);
+      const j = await r.json();
+      const c = wmo(j.current.weather_code);
+      $("todayWeather").textContent = c[0]+" "+Math.round(j.current.temperature_2m)+"°";
+      $("todayWeather").title = WEATHER.name+" · "+c[1];
+      const d = wmo(j.daily.weather_code[1]);
+      $("tomorrowWeather").textContent = d[0]+" "+Math.round(j.daily.temperature_2m_max[1])+"°/"+Math.round(j.daily.temperature_2m_min[1])+"°";
+      $("tomorrowWeather").title = WEATHER.name+" · "+d[1];
+    } catch(e){ console.warn("weather", e); $("todayWeather").textContent=""; $("tomorrowWeather").textContent=""; }
+  }
+
+  /* ── 날짜 라벨 ─────────────────────────────── */
   const now = new Date();
-  const days = ["일", "월", "화", "수", "목", "금", "토"];
-  $("todayLabel").textContent =
-    `${now.getFullYear()}. ${now.getMonth() + 1}. ${now.getDate()} (${days[now.getDay()]})`;
+  const DOW_KO = ["일","월","화","수","목","금","토"];
+  $("todayLabel").textContent = now.getFullYear()+". "+(now.getMonth()+1)+". "+now.getDate()+" ("+DOW_KO[now.getDay()]+")";
 
-  /* ── 로그인 처리 ───────────────────────────── */
-  const ROLE_LABEL = { admin: "관리자", editor: "팀원", viewer: "열람 전용" };
-
-  async function startApp(user) {
+  /* ── 로그인 ───────────────────────────────── */
+  const ROLE_LABEL = { admin:"관리자", editor:"팀원", viewer:"열람 전용" };
+  async function startApp(user){
     const meta = user.user_metadata || {};
-    state.username = meta.username || (user.email || "").split("@")[0];
+    state.username = meta.username || (user.email||"").split("@")[0];
     state.role = meta.role || "viewer";
-    state.canWrite = state.role === "admin" || state.role === "editor";
-
+    state.canWrite = state.role==="admin" || state.role==="editor";
     $("userName").textContent = state.username;
-    const badge = $("roleBadge");
-    badge.textContent = ROLE_LABEL[state.role] || state.role;
-    badge.className = "role-badge " + state.role;
+    const badge=$("roleBadge"); badge.textContent=ROLE_LABEL[state.role]||state.role; badge.className="role-badge "+state.role;
     document.body.classList.toggle("readonly", !state.canWrite);
-
-    $("loginOverlay").style.display = "none";
-    $("app").classList.add("ready");
-
+    $("loginOverlay").style.display="none"; $("app").classList.add("ready");
+    buildCanvases();
     await loadBoard();
     subscribeRealtime();
+    loadWeather();
+    setInterval(loadWeather, 30*60*1000);   // 30분마다 갱신
   }
-
   $("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const btn = $("loginBtn"), err = $("loginErr");
-    const id = $("loginUser").value.trim().toLowerCase();
-    const pw = $("loginPw").value;
-    if (!id || !pw) return;
-
-    btn.disabled = true; btn.textContent = "확인 중…"; err.textContent = "";
-
-    const { data, error } = await sb.auth.signInWithPassword({
-      email: id.includes("@") ? id : id + EMAIL_DOMAIN,
-      password: pw,
-    });
-
-    btn.disabled = false; btn.textContent = "로그인";
-
-    if (error) {
-      err.textContent = "아이디 또는 패스워드가 올바르지 않습니다.";
-      $("loginPw").value = "";
-      return;
-    }
+    const btn=$("loginBtn"), err=$("loginErr");
+    const id=$("loginUser").value.trim().toLowerCase(); const pw=$("loginPw").value;
+    if(!id||!pw)return;
+    btn.disabled=true; btn.textContent="확인 중…"; err.textContent="";
+    const { data, error } = await sb.auth.signInWithPassword({ email:id.includes("@")?id:id+EMAIL_DOMAIN, password:pw });
+    btn.disabled=false; btn.textContent="로그인";
+    if(error){ err.textContent="아이디 또는 패스워드가 올바르지 않습니다."; $("loginPw").value=""; return; }
     startApp(data.user);
   });
+  $("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
 
-  $("logoutBtn").addEventListener("click", async () => {
-    await sb.auth.signOut();
-    location.reload();
-  });
-
-  /* ── 기존 세션 자동 복구 ───────────────────── */
-  (async function init() {
+  (async function init(){
     const { data } = await sb.auth.getSession();
-    if (data && data.session) startApp(data.session.user);
+    if(data && data.session) startApp(data.session.user);
   })();
 })();
 </script>
